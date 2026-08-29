@@ -1,0 +1,19 @@
+{
+  "name": "fujiya-stock-monitor",
+  "version": "1.0.0",
+  "description": "Monitor Fujiya AVIC used-product arrivals and notify Discord",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "dry-run": "node src/main.js --dry-run",
+    "webhook:test": "node src/main.js --webhook-test",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.4.2"
+  }
+}
