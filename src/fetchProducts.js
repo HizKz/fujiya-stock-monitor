@@ -83,8 +83,12 @@ export function parseProducts(html, targetUrl, minimumProductCount = 1) {
     const href = link.attr("href") || card.find("a.js-enhanced-ecommerce-image").attr("href");
     const id = extractProductId(href);
     const name = normalizeText(card.find(".block-thumbnail-t--goods-name").first().text());
+    const brandEnglish = normalizeText(card.find(".block-thumbnail-t--goods-brand .txt-en").first().text());
+    const brandJapanese = normalizeText(card.find(".block-thumbnail-t--goods-brand .txt-ja").first().text());
     const price = normalizeText(card.find(".block-thumbnail-t--price").first().text());
     const condition = normalizeText(card.find(".secondhand_item").first().text());
+    const image = card.find(".block-thumbnail-t--goods-image img").first();
+    const imageSrc = image.attr("data-src") || image.attr("src");
     const stock = card
       .find("img[alt]")
       .toArray()
@@ -107,6 +111,9 @@ export function parseProducts(html, targetUrl, minimumProductCount = 1) {
       condition: condition.replace(/^中古[：:]\s*/, ""),
       stock,
       url: new URL(href, targetUrl).href,
+      brandEnglish,
+      brandJapanese,
+      imageUrl: imageSrc ? new URL(imageSrc, targetUrl).href : null,
     });
   });
 

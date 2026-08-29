@@ -1,4 +1,6 @@
 const MAX_EMBEDS_PER_MESSAGE = 10;
+const USED_LIST_URL = "https://www.fujiya-avic.co.jp/shop/c/c40_ssd/";
+const WEBHOOK_USERNAME = "フジヤエービック在庫確認BOT";
 
 export async function postNewProducts(webhookUrl, products, options = {}) {
   const batches = chunk(products, MAX_EMBEDS_PER_MESSAGE);
@@ -7,10 +9,7 @@ export async function postNewProducts(webhookUrl, products, options = {}) {
     await postWebhook(
       webhookUrl,
       {
-        username: "Fujiya AVIC Stock Monitor",
-        content: `🆕 新着中古商品 ${products.length}件${
-          batches.length > 1 ? ` (${index + 1}/${batches.length})` : ""
-        }`,
+        username: WEBHOOK_USERNAME,
         embeds: batches[index].map(productToEmbed),
         allowed_mentions: { parse: [] },
       },
@@ -19,12 +18,13 @@ export async function postNewProducts(webhookUrl, products, options = {}) {
   }
 }
 
-export async function postTestNotification(webhookUrl, options = {}) {
+export async function postTestNotification(webhookUrl, product, options = {}) {
   await postWebhook(
     webhookUrl,
     {
-      username: "Fujiya AVIC Stock Monitor",
-      content: "✅ Fujiya AVIC新着監視のWebhook接続テストに成功しました。",
+      username: WEBHOOK_USERNAME,
+      content: "🧪 新着通知の表示テスト",
+      embeds: [productToEmbed(product)],
       allowed_mentions: { parse: [] },
     },
     options
@@ -32,17 +32,34 @@ export async function postTestNotification(webhookUrl, options = {}) {
 }
 
 export function productToEmbed(product) {
-  return {
-    title: product.name.slice(0, 256),
-    url: product.url,
-    color: product.stock === "在庫あり" ? 0x2ecc71 : 0x95a5a6,
-    fields: [
-      { name: "価格", value: product.price || "不明", inline: true },
-      { name: "ランク", value: product.condition || "不明", inline: true },
-      { name: "在庫", value: product.stock, inline: true },
-    ],
-    footer: { text: `商品コード: ${product.id}` },
+  const brandLines = [product.brandEnglish, product.brandJapanese]
+    .filter(Boolean)
+    .map((brand) => `[${escapeLinkText(brand)}](${product.url})`);
+  const description = [
+    ...brandLines,
+    "",
+    `[${escapeLinkText(product.name)}](${product.url})`,
+    "",
+    `**価格: ${product.price || "不明"}**`,
+    "",
+    `➤ [中古リスト一覧ページを開く](${USED_LIST_URL})`,
+  ].join("\n");
+
+  const embed = {
+    title: "🚨 新着商品のお知らせ",
+    color: 0xe74c3c,
+    description,
   };
+
+  if (product.imageUrl) {
+    embed.thumbnail = { url: product.imageUrl };
+  }
+
+  return embed;
+}
+
+function escapeLinkText(value) {
+  return value.replace(/[\\[\]()]/g, "\\$&");
 }
 
 async function postWebhook(webhookUrl, payload, options) {

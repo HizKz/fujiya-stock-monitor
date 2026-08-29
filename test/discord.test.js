@@ -10,13 +10,24 @@ const sampleProduct = {
   condition: "AB+",
   stock: "在庫あり",
   url: "https://www.fujiya-avic.co.jp/shop/g/g240000000001/",
+  brandEnglish: "SAMPLE AUDIO",
+  brandJapanese: "サンプルオーディオ",
+  imageUrl: "https://www.fujiya-avic.co.jp/sample.jpg",
 };
 
-test("productToEmbed produces a linked embed without mentions", () => {
+test("productToEmbed produces the requested notification layout", () => {
   const embed = productToEmbed(sampleProduct);
-  assert.equal(embed.title, "Sample DAC");
-  assert.equal(embed.url, sampleProduct.url);
-  assert.equal(embed.fields[2].value, "在庫あり");
+  assert.equal(embed.title, "🚨 新着商品のお知らせ");
+  assert.equal(embed.color, 0xe74c3c);
+  assert.equal(embed.thumbnail.url, sampleProduct.imageUrl);
+  assert.match(embed.description, /\[SAMPLE AUDIO\]\(https:\/\/www\.fujiya-avic\.co\.jp\/shop\/g\/g240000000001\/\)/);
+  assert.match(embed.description, /\[サンプルオーディオ\]/);
+  assert.match(embed.description, /\[Sample DAC\]/);
+  assert.match(embed.description, /\*\*価格: ￥12,800\(税込\)\*\*/);
+  assert.match(
+    embed.description,
+    /\[中古リスト一覧ページを開く\]\(https:\/\/www\.fujiya-avic\.co\.jp\/shop\/c\/c40_ssd\/\)/
+  );
 });
 
 test("postNewProducts splits more than ten products into batches", async () => {
@@ -37,6 +48,8 @@ test("postNewProducts splits more than ten products into batches", async () => {
   assert.equal(payloads.length, 2);
   assert.equal(payloads[0].embeds.length, 10);
   assert.equal(payloads[1].embeds.length, 1);
+  assert.equal(payloads[0].username, "フジヤエービック在庫確認BOT");
+  assert.equal(payloads[0].content, undefined);
   assert.deepEqual(payloads[0].allowed_mentions, { parse: [] });
 });
 

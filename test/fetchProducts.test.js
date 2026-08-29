@@ -19,6 +19,9 @@ test("parseProducts extracts new and sold-out product fields", async () => {
       condition: "AB+",
       stock: "在庫あり",
       url: "https://www.fujiya-avic.co.jp/shop/g/g240000000001/",
+      brandEnglish: "SAMPLE AUDIO",
+      brandJapanese: "サンプルオーディオ",
+      imageUrl: "https://www.fujiya-avic.co.jp/sample.jpg",
     },
     {
       id: "240000000002",
@@ -27,6 +30,9 @@ test("parseProducts extracts new and sold-out product fields", async () => {
       condition: "A",
       stock: "売り切れ",
       url: "https://www.fujiya-avic.co.jp/shop/g/g240000000002/",
+      brandEnglish: "HEADPHONE LAB",
+      brandJapanese: "ヘッドホンラボ",
+      imageUrl: "https://www.fujiya-avic.co.jp/sample2.jpg",
     },
   ]);
 });

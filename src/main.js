@@ -11,7 +11,9 @@ export async function main(args = process.argv.slice(2)) {
   validateConfig(mode);
 
   if (mode === "webhook-test") {
-    await postTestNotification(process.env.DISCORD_WEBHOOK_URL);
+    console.log(`[INFO] Fetching ${config.targetUrl} for notification preview`);
+    const products = await fetchProducts(config);
+    await postTestNotification(process.env.DISCORD_WEBHOOK_URL, products[0]);
     console.log("[INFO] Discord webhook test succeeded");
     return;
   }
