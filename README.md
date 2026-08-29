@@ -47,6 +47,26 @@ Name: DISCORD_WEBHOOK_URL
 Secret: DiscordでコピーしたWebhook URL
 ```
 
+Webhook接続テストが成功した後、定期監視を有効化するためにRepository Variableも登録します。
+
+```text
+Settings
+  → Secrets and variables
+  → Actions
+  → Variables
+  → New repository variable
+
+Name: MONITOR_ENABLED
+Value: true
+```
+
+`MONITOR_ENABLED=true`を設定するまでは、10分ごとの定期ジョブは安全のためスキップされます。GitHub CLIを使う場合は次のコマンドでも登録できます。Webhook URLはコマンドに直接書かず、プロンプトから入力してください。
+
+```bash
+gh secret set DISCORD_WEBHOOK_URL --repo HizKz/fujiya-stock-monitor
+gh variable set MONITOR_ENABLED --body true --repo HizKz/fujiya-stock-monitor
+```
+
 ## GitHub Actionsを手動実行する
 
 最初にWebhook接続を確認します。
@@ -60,7 +80,7 @@ Actions
 
 Discordに接続テストが1件届けば成功です。
 
-次に`mode: monitor`で実行します。初回は現在の新着商品を`data/seen-products.json`へ保存するだけで、商品通知は送りません。以降は10分ごとに自動実行されます。
+次に`mode: monitor`で実行します。初回は現在の新着商品を`data/seen-products.json`へ保存するだけで、商品通知は送りません。`MONITOR_ENABLED=true`の登録後は10分ごとに自動実行されます。
 
 GitHub Actionsのスケジュールは混雑状況により遅れることがあり、正確な10分間隔は保証されません。
 
