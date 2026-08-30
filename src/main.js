@@ -13,7 +13,7 @@ export async function main(args = process.argv.slice(2)) {
   if (mode === "webhook-test") {
     console.log(`[INFO] Fetching ${config.targetUrl} for notification preview`);
     const products = await fetchProducts(config);
-    await postTestNotification(process.env.DISCORD_WEBHOOK_URL, products[0]);
+    await postTestNotification(process.env.DISCORD_WEBHOOK_URL, products.slice(0, 5));
     console.log("[INFO] Discord webhook test succeeded");
     return;
   }

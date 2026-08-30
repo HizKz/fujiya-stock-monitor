@@ -1,61 +1,80 @@
-const MAX_EMBEDS_PER_MESSAGE = 10;
+const MAX_EMBED_DESCRIPTION_LENGTH = 4_096;
 const USED_LIST_URL = "https://www.fujiya-avic.co.jp/shop/c/c40_ssd/";
 const WEBHOOK_USERNAME = "フジヤエービック在庫確認BOT";
 
 export async function postNewProducts(webhookUrl, products, options = {}) {
-  const batches = chunk(products, MAX_EMBEDS_PER_MESSAGE);
-
-  for (let index = 0; index < batches.length; index += 1) {
-    await postWebhook(
-      webhookUrl,
-      {
-        username: WEBHOOK_USERNAME,
-        embeds: batches[index].map(productToEmbed),
-        allowed_mentions: { parse: [] },
-      },
-      options
-    );
-  }
-}
-
-export async function postTestNotification(webhookUrl, product, options = {}) {
   await postWebhook(
     webhookUrl,
     {
       username: WEBHOOK_USERNAME,
-      content: "🧪 新着通知の表示テスト",
-      embeds: [productToEmbed(product)],
+      embeds: [productsToSummaryEmbed(products)],
       allowed_mentions: { parse: [] },
     },
     options
   );
 }
 
-export function productToEmbed(product) {
-  const brandLines = [product.brandEnglish, product.brandJapanese]
-    .filter(Boolean)
-    .map((brand) => `[${escapeLinkText(brand)}](${product.url})`);
-  const description = [
-    ...brandLines,
-    "",
-    `[${escapeLinkText(product.name)}](${product.url})`,
-    "",
-    `**価格: ${product.price || "不明"}**`,
-    "",
-    `➤ [中古リスト一覧ページを開く](${USED_LIST_URL})`,
-  ].join("\n");
+export async function postTestNotification(webhookUrl, products, options = {}) {
+  await postWebhook(
+    webhookUrl,
+    {
+      username: WEBHOOK_USERNAME,
+      content: "🧪 新着通知の表示テスト",
+      embeds: [productsToSummaryEmbed(products)],
+      allowed_mentions: { parse: [] },
+    },
+    options
+  );
+}
 
+export function productsToSummaryEmbed(products) {
+  if (products.length === 0) {
+    throw new Error("At least one product is required to create a Discord notification");
+  }
+
+  const lines = [];
+
+  for (const [index, product] of products.entries()) {
+    const line = productToListLine(product, index + 1);
+    const remainingCount = products.length - (lines.length + 1);
+    const candidate = buildDescription([...lines, line], remainingCount);
+
+    if (candidate.length > MAX_EMBED_DESCRIPTION_LENGTH) break;
+    lines.push(line);
+  }
+
+  const hiddenCount = products.length - lines.length;
   const embed = {
-    title: "🚨 新着商品のお知らせ",
+    title: `🚨 新着商品のお知らせ（${products.length}件）`,
     color: 0xe74c3c,
-    description,
+    description: buildDescription(lines, hiddenCount),
   };
 
-  if (product.imageUrl) {
-    embed.thumbnail = { url: product.imageUrl };
+  if (products[0].imageUrl) {
+    embed.thumbnail = { url: products[0].imageUrl };
   }
 
   return embed;
+}
+
+function productToListLine(product, number) {
+  const stockIcon = product.stock === "在庫あり" ? "🟢" : "⚫";
+  const brand = product.brandEnglish || product.brandJapanese;
+  const label = brand ? `${brand} ${product.name}` : product.name;
+  return `${number}. ${stockIcon} [${escapeLinkText(label)}](${product.url}) — **${
+    product.price || "価格不明"
+  }**`;
+}
+
+function buildDescription(lines, hiddenCount) {
+  const parts = [lines.join("\n")];
+
+  if (hiddenCount > 0) {
+    parts.push(`…ほか **${hiddenCount}件** あります`);
+  }
+
+  parts.push(`➤ [中古リスト一覧ページを開く](${USED_LIST_URL})`);
+  return parts.filter(Boolean).join("\n\n");
 }
 
 function escapeLinkText(value) {
@@ -126,14 +145,6 @@ async function safeResponseText(response) {
   } catch {
     return "";
   }
-}
-
-function chunk(items, size) {
-  const result = [];
-  for (let index = 0; index < items.length; index += size) {
-    result.push(items.slice(index, index + size));
-  }
-  return result;
 }
 
 function sleep(ms) {
