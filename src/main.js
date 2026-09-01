@@ -4,17 +4,18 @@ import { pathToFileURL } from "node:url";
 import { config, validateConfig } from "./config.js";
 import { postNewProducts, postTestNotification } from "./discord.js";
 import { fetchProducts } from "./fetchProducts.js";
+import { postBotNotification, postBotTestNotification } from "./notifier.js";
 import { findNewProducts, loadState, saveState, withSeenProducts } from "./state.js";
 
 export async function main(args = process.argv.slice(2)) {
   const mode = getMode(args);
   validateConfig(mode);
 
-  if (mode === "webhook-test") {
+  if (mode === "notification-test") {
     console.log(`[INFO] Fetching ${config.targetUrl} for notification preview`);
     const products = await fetchProducts(config);
-    await postTestNotification(process.env.DISCORD_WEBHOOK_URL, products.slice(0, 5));
-    console.log("[INFO] Discord webhook test succeeded");
+    await sendNotification(products.slice(0, 10), true);
+    console.log(`[INFO] Discord ${hasBotNotifier() ? "Bot" : "webhook"} test succeeded`);
     return;
   }
 
@@ -48,15 +49,34 @@ export async function main(args = process.argv.slice(2)) {
   }
 
   console.log(`[INFO] Found ${newProducts.length} new products`);
-  await postNewProducts(process.env.DISCORD_WEBHOOK_URL, newProducts);
+  await sendNotification(newProducts);
   await saveState(config.stateFile, nextState);
-  console.log(`[INFO] Discord notification sent and ${newProducts.length} products saved`);
+  console.log(
+    `[INFO] Discord ${hasBotNotifier() ? "Bot" : "webhook"} notification sent and ${
+      newProducts.length
+    } products saved`
+  );
 }
 
 export function getMode(args) {
   if (args.includes("--dry-run")) return "dry-run";
-  if (args.includes("--webhook-test")) return "webhook-test";
+  if (args.includes("--bot-test") || args.includes("--webhook-test")) return "notification-test";
   return "monitor";
+}
+
+async function sendNotification(products, test = false) {
+  if (hasBotNotifier()) {
+    const send = test ? postBotTestNotification : postBotNotification;
+    await send(process.env.NOTIFIER_API_URL, process.env.NOTIFIER_API_TOKEN, products);
+    return;
+  }
+
+  const send = test ? postTestNotification : postNewProducts;
+  await send(process.env.DISCORD_WEBHOOK_URL, products);
+}
+
+function hasBotNotifier(env = process.env) {
+  return Boolean(env.NOTIFIER_API_URL && env.NOTIFIER_API_TOKEN);
 }
 
 const isEntryPoint = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

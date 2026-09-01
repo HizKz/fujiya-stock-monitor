@@ -6,8 +6,12 @@
   "scripts": {
     "start": "node src/main.js",
     "dry-run": "node src/main.js --dry-run",
+    "bot:test": "node src/main.js --bot-test",
     "webhook:test": "node src/main.js --webhook-test",
-    "test": "node --test"
+    "test": "node --test",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:check": "wrangler deploy --dry-run"
   },
   "engines": {
     "node": ">=22"
@@ -15,5 +19,8 @@
   "dependencies": {
     "cheerio": "^1.1.2",
     "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }

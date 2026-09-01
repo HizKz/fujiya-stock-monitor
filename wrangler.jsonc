@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fujiya-stock-bot",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["3,13,23,33,43,53 * * * *"]
+  },
+  "vars": {
+    "GITHUB_OWNER": "HizKz",
+    "GITHUB_REPO": "fujiya-stock-monitor",
+    "GITHUB_WORKFLOW": "monitor.yml",
+    "GITHUB_REF": "main"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "NOTIFICATIONS",
+      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+    }
+  ]
+}

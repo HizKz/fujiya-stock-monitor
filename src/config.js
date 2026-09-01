@@ -12,7 +12,17 @@ export const config = {
 };
 
 export function validateConfig(mode, env = process.env) {
-  if (mode !== "dry-run" && !env.DISCORD_WEBHOOK_URL) {
-    throw new Error("DISCORD_WEBHOOK_URL is not set");
+  if (mode === "dry-run") return;
+
+  const hasBotApiUrl = Boolean(env.NOTIFIER_API_URL);
+  const hasBotApiToken = Boolean(env.NOTIFIER_API_TOKEN);
+  if (hasBotApiUrl !== hasBotApiToken) {
+    throw new Error("NOTIFIER_API_URL and NOTIFIER_API_TOKEN must be set together");
+  }
+
+  if (!hasBotApiUrl && !env.DISCORD_WEBHOOK_URL) {
+    throw new Error(
+      "Set NOTIFIER_API_URL and NOTIFIER_API_TOKEN, or use DISCORD_WEBHOOK_URL during migration"
+    );
   }
 }

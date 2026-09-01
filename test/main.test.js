@@ -3,8 +3,9 @@ import test from "node:test";
 
 import { getMode } from "../src/main.js";
 
-test("getMode selects monitor, dry-run, and webhook test modes", () => {
+test("getMode selects monitor, dry-run, and notification test modes", () => {
   assert.equal(getMode([]), "monitor");
   assert.equal(getMode(["--dry-run"]), "dry-run");
-  assert.equal(getMode(["--webhook-test"]), "webhook-test");
+  assert.equal(getMode(["--bot-test"]), "notification-test");
+  assert.equal(getMode(["--webhook-test"]), "notification-test");
 });

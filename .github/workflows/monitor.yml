@@ -14,7 +14,7 @@ on:
         type: choice
         options:
           - monitor
-          - webhook-test
+          - bot-test
 
 permissions:
   contents: write
@@ -25,7 +25,9 @@ concurrency:
 
 jobs:
   monitor:
-    if: github.event_name == 'workflow_dispatch' || vars.MONITOR_ENABLED == 'true'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.MONITOR_ENABLED == 'true' && vars.CLOUDFLARE_SCHEDULER_ENABLED != 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
@@ -46,12 +48,16 @@ jobs:
         if: github.event_name == 'schedule' || inputs.mode == 'monitor'
         run: npm start
         env:
+          NOTIFIER_API_URL: ${{ secrets.NOTIFIER_API_URL }}
+          NOTIFIER_API_TOKEN: ${{ secrets.NOTIFIER_API_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      - name: Test Discord webhook
-        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'webhook-test'
-        run: npm run webhook:test
+      - name: Test Discord notification
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'bot-test'
+        run: npm run bot:test
         env:
+          NOTIFIER_API_URL: ${{ secrets.NOTIFIER_API_URL }}
+          NOTIFIER_API_TOKEN: ${{ secrets.NOTIFIER_API_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       - name: Commit updated product state
