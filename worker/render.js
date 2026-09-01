@@ -10,7 +10,7 @@ export function buildMessage(products, notificationId, page = 0, test = false) {
   const safePage = Math.min(Math.max(Number(page) || 0, 0), pageCount - 1);
   const firstIndex = safePage * PAGE_SIZE;
   const pageProducts = products.slice(firstIndex, firstIndex + PAGE_SIZE);
-  const embed = productToEmbed(pageProducts[0], test);
+  const embed = productToEmbed(pageProducts[0], products.length, test);
   embed.footer = { text: `${safePage + 1} / ${products.length}件` };
 
   return {
@@ -56,7 +56,7 @@ function buildActionRow(notificationId, page, pageCount) {
   };
 }
 
-function productToEmbed(product, test) {
+function productToEmbed(product, totalCount, test) {
   const brandLines = [product.brandEnglish, product.brandJapanese]
     .filter(Boolean)
     .map((brand) => `[${escapeLinkText(brand)}](${product.url})`);
@@ -70,7 +70,9 @@ function productToEmbed(product, test) {
     `➤ [中古リスト一覧ページを開く](${USED_LIST_URL})`,
   ].join("\n");
   const embed = {
-    title: test ? "🧪 新着通知の表示テスト" : "🚨 新着商品のお知らせ",
+    title: test
+      ? `🧪 新着通知の表示テスト（全${totalCount}件）`
+      : `🚨 新着商品のお知らせ（全${totalCount}件）`,
     color: test ? 0x3498db : 0xe74c3c,
     description,
   };

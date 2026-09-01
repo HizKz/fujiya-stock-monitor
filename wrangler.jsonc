@@ -8,7 +8,7 @@
     "enabled": true
   },
   "triggers": {
-    "crons": ["3,13,23,33,43,53 * * * *"]
+    "crons": ["*/10 * * * *"]
   },
   "vars": {
     "GITHUB_OWNER": "HizKz",

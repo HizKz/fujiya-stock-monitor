@@ -29,6 +29,7 @@ Cloudflare Workers、Workers KV、GitHub Actionsの無料枠内での個人利�
 - `在庫あり`と`売り切れ`の両方を通知
 - 1回の更新を1つのDiscordメッセージにまとめる
 - 1ページに1商品のカードを表示し、商品名・価格・画像を確認可能
+- カードのタイトルと件数表示で、届いた新着商品の総数を確認可能
 - 「中古一覧ページを開く」から監視対象ページへ移動可能
 - 既存商品の価格変更や在庫復活は通知対象外
 - 取得、HTML解析、Bot通知のいずれかに失敗した場合は既知商品データを更新しない
@@ -172,7 +173,13 @@ Name: CLOUDFLARE_SCHEDULER_ENABLED
 Value: true
 ```
 
-これでGitHub側の予備Cronはジョブをスキップし、Cloudflare Cronからの`workflow_dispatch`だけが実行されます。Cloudflareは毎時`03・13・23・33・43・53分`（UTC）にGitHub Actionsを起動します。
+これでGitHub側の予備Cronはジョブをスキップし、Cloudflare Cronからの`workflow_dispatch`だけが実行されます。Cloudflareは毎時`00・10・20・30・40・50分`（UTC）にGitHub Actionsを起動します。
+
+定期実行の最終結果は次のURLで確認できます。`scheduler`が`null`ならまだCron未実行、`ok: true`なら直近のGitHub Actions起動に成功しています。
+
+```text
+https://fujiya-stock-bot.fujiya-stock-monitor.workers.dev/health
+```
 
 問題が起きた場合は`CLOUDFLARE_SCHEDULER_ENABLED`を`false`へ戻すか削除すると、既存のGitHub Cronへ戻せます。
 

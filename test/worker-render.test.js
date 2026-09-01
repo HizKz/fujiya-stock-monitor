@@ -19,7 +19,7 @@ test("buildMessage renders one product card with horizontal-style navigation", (
 
   assert.equal(PAGE_SIZE, 1);
   assert.equal(message.embeds.length, 1);
-  assert.equal(message.embeds[0].title, "🚨 新着商品のお知らせ");
+  assert.equal(message.embeds[0].title, "🚨 新着商品のお知らせ（全10件）");
   assert.match(message.embeds[0].description, /\[SAMPLE\].*\n\n\[Product 1\]/);
   assert.match(message.embeds[0].description, /\*\*価格: ￥1,000\(税込\)\*\*/);
   assert.match(message.embeds[0].description, new RegExp(USED_LIST_URL.replaceAll("/", "\\/")));
@@ -33,7 +33,7 @@ test("buildMessage renders one product card with horizontal-style navigation", (
 test("buildMessage clamps an out-of-range product page", () => {
   const message = buildMessage(products, "b".repeat(32), 99, true);
   assert.equal(message.embeds.length, 1);
-  assert.equal(message.embeds[0].title, "🧪 新着通知の表示テスト");
+  assert.equal(message.embeds[0].title, "🧪 新着通知の表示テスト（全12件）");
   assert.match(message.embeds[0].description, /Product 12/);
   assert.equal(message.embeds[0].footer.text, "12 / 12件");
   assert.equal(message.components[0].components[0].custom_id, `stock:${"b".repeat(32)}:0`);
