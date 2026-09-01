@@ -27,6 +27,13 @@ function buildActionRow(notificationId, page, pageCount) {
       {
         type: 2,
         style: 2,
+        label: "⏮ 最初へ",
+        custom_id: `stock:${notificationId}:0`,
+        disabled: page === 0,
+      },
+      {
+        type: 2,
+        style: 2,
         label: "◀ 前へ",
         custom_id: `stock:${notificationId}:${Math.max(0, page - 1)}`,
         disabled: page === 0,

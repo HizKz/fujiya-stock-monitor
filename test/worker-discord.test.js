@@ -51,7 +51,8 @@ test("createNotification stores the pages and sends one Bot message", async () =
   const payload = JSON.parse(discordRequests[0].options.body);
   assert.equal(payload.embeds.length, 1);
   assert.equal(payload.embeds[0].footer.text, "1 / 12件");
-  assert.equal(payload.components[0].components.length, 3);
+  assert.equal(payload.components[0].components.length, 4);
+  assert.equal(payload.components[0].components[0].label, "⏮ 最初へ");
   assert.ok(await kv.get(`notification:${result.notificationId}`));
   assert.equal(await kv.get(`idempotency:${"a".repeat(64)}`), result.notificationId);
 });

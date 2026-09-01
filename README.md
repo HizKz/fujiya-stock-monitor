@@ -15,7 +15,7 @@ Cloudflare Cron（10分ごと）
 - Cloudflare WorkerはCron、Bot API、Discordのボタン操作を担当します。
 - GitHub Actionsは、実績のあるHTML取得・解析と既知商品の保存を担当します。
 - 新着が多くても1通にまとめ、1商品ずつカード表示します。
-- 「前へ」「次へ」で商品カードを横へ送る感覚で切り替えられます。
+- 「最初へ」「前へ」「次へ」で商品カードを横へ送る感覚で切り替えられます。
 - ボタン用データはWorkers KVへ7日間保存します。
 - Cloudflareへの切り替えが終わるまでは、既存のDiscord WebhookとGitHub Cronが動き続けます。
 

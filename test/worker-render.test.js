@@ -26,7 +26,8 @@ test("buildMessage renders one product card with horizontal-style navigation", (
   assert.equal(message.embeds[0].thumbnail.url, products[0].imageUrl);
   assert.equal(message.embeds[0].footer.text, "1 / 10件");
   assert.equal(message.components[0].components[0].disabled, true);
-  assert.equal(message.components[0].components[2].custom_id, `stock:${"a".repeat(32)}:1`);
+  assert.equal(message.components[0].components[1].disabled, true);
+  assert.equal(message.components[0].components[3].custom_id, `stock:${"a".repeat(32)}:1`);
 });
 
 test("buildMessage clamps an out-of-range product page", () => {
@@ -35,6 +36,7 @@ test("buildMessage clamps an out-of-range product page", () => {
   assert.equal(message.embeds[0].title, "🧪 新着通知の表示テスト");
   assert.match(message.embeds[0].description, /Product 12/);
   assert.equal(message.embeds[0].footer.text, "12 / 12件");
-  assert.equal(message.components[0].components[0].custom_id, `stock:${"b".repeat(32)}:10`);
-  assert.equal(message.components[0].components[2].disabled, true);
+  assert.equal(message.components[0].components[0].custom_id, `stock:${"b".repeat(32)}:0`);
+  assert.equal(message.components[0].components[1].custom_id, `stock:${"b".repeat(32)}:10`);
+  assert.equal(message.components[0].components[3].disabled, true);
 });
