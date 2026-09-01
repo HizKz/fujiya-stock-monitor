@@ -7,7 +7,7 @@ import {
   verifyDiscordSignature,
 } from "../worker/discord.js";
 
-const sampleProducts = Array.from({ length: 6 }, (_, index) => ({
+const sampleProducts = Array.from({ length: 12 }, (_, index) => ({
   id: String(index + 1),
   name: `Product ${index + 1}`,
   price: "￥12,800(税込)",
@@ -49,8 +49,9 @@ test("createNotification stores the pages and sends one Bot message", async () =
   assert.equal(discordRequests.length, 1);
   assert.equal(discordRequests[0].options.headers.Authorization, "Bot discord-secret");
   const payload = JSON.parse(discordRequests[0].options.body);
-  assert.equal(payload.embeds[0].footer.text, "ページ 1 / 2");
-  assert.equal(payload.components[0].components.length, 4);
+  assert.equal(payload.embeds.length, 1);
+  assert.equal(payload.embeds[0].footer.text, "1 / 12件");
+  assert.equal(payload.components[0].components.length, 3);
   assert.ok(await kv.get(`notification:${result.notificationId}`));
   assert.equal(await kv.get(`idempotency:${"a".repeat(64)}`), result.notificationId);
 });
@@ -119,8 +120,9 @@ test("handleInteraction verifies Discord and updates the message page", async ()
   const result = await response.json();
 
   assert.equal(result.type, 7);
-  assert.equal(result.data.embeds[0].footer.text, "ページ 2 / 2");
-  assert.match(result.data.embeds[0].description, /6\. 🟢/);
+  assert.equal(result.data.embeds.length, 1);
+  assert.equal(result.data.embeds[0].footer.text, "2 / 12件");
+  assert.match(result.data.embeds[0].description, /Product 2/);
 });
 
 class MemoryKv {
