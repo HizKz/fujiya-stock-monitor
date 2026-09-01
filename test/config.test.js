@@ -24,3 +24,13 @@ test("validateConfig rejects incomplete Bot API credentials", () => {
     /must be set together/
   );
 });
+
+test("validateConfig does not silently fall back to a webhook during a Bot test", () => {
+  assert.throws(
+    () =>
+      validateConfig("notification-test", {
+        DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
+      }),
+    /Bot test requires NOTIFIER_API_URL and NOTIFIER_API_TOKEN/
+  );
+});

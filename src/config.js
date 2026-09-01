@@ -20,6 +20,10 @@ export function validateConfig(mode, env = process.env) {
     throw new Error("NOTIFIER_API_URL and NOTIFIER_API_TOKEN must be set together");
   }
 
+  if (mode === "notification-test" && !hasBotApiUrl) {
+    throw new Error("Bot test requires NOTIFIER_API_URL and NOTIFIER_API_TOKEN");
+  }
+
   if (!hasBotApiUrl && !env.DISCORD_WEBHOOK_URL) {
     throw new Error(
       "Set NOTIFIER_API_URL and NOTIFIER_API_TOKEN, or use DISCORD_WEBHOOK_URL during migration"
