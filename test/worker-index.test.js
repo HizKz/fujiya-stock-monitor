@@ -32,8 +32,34 @@ test("scheduled run records a successful GitHub dispatch", async () => {
   assert.equal(dispatched, true);
   const status = JSON.parse(await kv.get());
   assert.equal(status.ok, true);
+  assert.equal(status.action, "dispatched");
   assert.equal(status.cron, "*/10 * * * *");
   assert.equal(status.scheduledTime, "2026-09-02T00:10:00.000Z");
+  assert.ok(status.lastDispatchAt);
+});
+
+test("scheduled run skips GitHub dispatch during the ten-minute interval", async () => {
+  const lastDispatchAt = "2026-09-02T00:10:00.000Z";
+  const kv = createKv(JSON.stringify({ ok: true, lastDispatchAt }));
+  let dispatchCount = 0;
+
+  await handleScheduled(
+    { cron: "* * * * *", scheduledTime: Date.UTC(2026, 8, 2, 0, 15) },
+    { NOTIFICATIONS: kv },
+    {
+      now: "2026-09-02T00:15:00.000Z",
+      triggerMonitorWorkflowImpl: async () => {
+        dispatchCount += 1;
+      },
+    }
+  );
+
+  assert.equal(dispatchCount, 0);
+  const status = JSON.parse(await kv.get());
+  assert.equal(status.ok, true);
+  assert.equal(status.action, "skipped");
+  assert.equal(status.lastDispatchAt, lastDispatchAt);
+  assert.equal(status.nextDispatchAfter, "2026-09-02T00:20:00.000Z");
 });
 
 test("health endpoint returns the last scheduler status", async () => {

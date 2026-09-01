@@ -173,9 +173,9 @@ Name: CLOUDFLARE_SCHEDULER_ENABLED
 Value: true
 ```
 
-これでGitHub側の予備Cronはジョブをスキップし、Cloudflare Cronからの`workflow_dispatch`だけが実行されます。Cloudflareは毎時`00・10・20・30・40・50分`（UTC）にGitHub Actionsを起動します。
+これでGitHub側の予備Cronはジョブをスキップし、Cloudflare Cronからの`workflow_dispatch`だけが実行されます。Cloudflare Workerは1分ごとに起動しますが、GitHub Actionsとフジヤエービックの商品取得は前回起動から10分経過したときだけ行います。Cronが一度遅れても次の1分で回復できる構成です。
 
-定期実行の最終結果は次のURLで確認できます。`scheduler`が`null`ならまだCron未実行、`ok: true`なら直近のGitHub Actions起動に成功しています。
+定期実行の最終結果は次のURLで確認できます。`scheduler`が`null`ならまだCron未実行です。`action`はGitHub Actionsを起動した`dispatched`、10分待機中の`skipped`、失敗した`failed`のいずれかになります。
 
 ```text
 https://fujiya-stock-bot.fujiya-stock-monitor.workers.dev/health
