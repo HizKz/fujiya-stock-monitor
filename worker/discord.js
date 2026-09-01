@@ -3,7 +3,7 @@ import { buildMessage } from "./render.js";
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const NOTIFICATION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24;
-const CUSTOM_ID_PATTERN = /^stock:([0-9a-f]{32}):(\d+)$/;
+const CUSTOM_ID_PATTERN = /^stock:(?:(?:first|prev|next):)?([0-9a-f]{32}):(\d+)$/;
 
 export async function createNotification(request, env, options = {}) {
   if (!isAuthorized(request, env.NOTIFIER_API_TOKEN)) {

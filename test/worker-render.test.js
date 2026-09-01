@@ -27,7 +27,7 @@ test("buildMessage renders one product card with horizontal-style navigation", (
   assert.equal(message.embeds[0].footer.text, "1 / 10件");
   assert.equal(message.components[0].components[0].disabled, true);
   assert.equal(message.components[0].components[1].disabled, true);
-  assert.equal(message.components[0].components[3].custom_id, `stock:${"a".repeat(32)}:1`);
+  assert.equal(message.components[0].components[3].custom_id, `stock:next:${"a".repeat(32)}:1`);
 });
 
 test("buildMessage clamps an out-of-range product page", () => {
@@ -36,7 +36,16 @@ test("buildMessage clamps an out-of-range product page", () => {
   assert.equal(message.embeds[0].title, "🧪 新着通知の表示テスト（全12件）");
   assert.match(message.embeds[0].description, /Product 12/);
   assert.equal(message.embeds[0].footer.text, "12 / 12件");
-  assert.equal(message.components[0].components[0].custom_id, `stock:${"b".repeat(32)}:0`);
-  assert.equal(message.components[0].components[1].custom_id, `stock:${"b".repeat(32)}:10`);
+  assert.equal(message.components[0].components[0].custom_id, `stock:first:${"b".repeat(32)}:0`);
+  assert.equal(message.components[0].components[1].custom_id, `stock:prev:${"b".repeat(32)}:10`);
   assert.equal(message.components[0].components[3].disabled, true);
+});
+
+test("buildMessage gives every navigation component a unique custom id", () => {
+  const message = buildMessage(products, "c".repeat(32), 1);
+  const customIds = message.components[0].components.map((component) => component.custom_id);
+
+  assert.equal(new Set(customIds).size, customIds.length);
+  assert.equal(customIds[0], `stock:first:${"c".repeat(32)}:0`);
+  assert.equal(customIds[1], `stock:prev:${"c".repeat(32)}:0`);
 });
