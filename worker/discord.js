@@ -61,7 +61,7 @@ export async function createNotification(request, env, options = {}) {
   return jsonResponse({ ok: true, duplicate: false, notificationId }, 201);
 }
 
-export async function handleInteraction(request, env) {
+export async function handleInteraction(request, env, ctx, options = {}) {
   const rawBody = await request.text();
   if (!(await verifyDiscordSignature(request.headers, rawBody, env.DISCORD_PUBLIC_KEY))) {
     return textResponse("Invalid request signature", 401);
@@ -83,6 +83,23 @@ export async function handleInteraction(request, env) {
   if (!match) return ephemeralResponse("このボタンには対応していません。");
 
   const [, notificationId, requestedPage] = match;
+  if (ctx?.waitUntil && interaction.application_id && interaction.token) {
+    ctx.waitUntil(
+      updateInteractionMessage(
+        interaction,
+        notificationId,
+        Number(requestedPage),
+        env,
+        options
+      )
+    );
+    return jsonResponse({ type: 6 });
+  }
+
+  return await buildInteractionUpdate(notificationId, Number(requestedPage), env);
+}
+
+async function buildInteractionUpdate(notificationId, requestedPage, env) {
   const stored = await env.NOTIFICATIONS.get(`notification:${notificationId}`);
   if (!stored) {
     return ephemeralResponse("この通知のページ切り替え期限（7日間）が切れました。");
@@ -97,8 +114,40 @@ export async function handleInteraction(request, env) {
 
   return jsonResponse({
     type: 7,
-    data: buildMessage(record.products, notificationId, Number(requestedPage), record.test),
+    data: buildMessage(record.products, notificationId, requestedPage, record.test),
   });
+}
+
+async function updateInteractionMessage(interaction, notificationId, requestedPage, env, options) {
+  try {
+    const response = await buildInteractionUpdate(notificationId, requestedPage, env);
+    const result = await response.json();
+    if (result.type !== 7) {
+      console.error("Unable to build deferred interaction update", result);
+      return;
+    }
+
+    const fetchImpl = options.fetchImpl || fetch;
+    const url = `${DISCORD_API_BASE}/webhooks/${encodeURIComponent(
+      interaction.application_id
+    )}/${encodeURIComponent(interaction.token)}/messages/@original`;
+    const discordResponse = await fetchImpl(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(result.data),
+    });
+
+    if (!discordResponse.ok) {
+      const body = await safeResponseText(discordResponse);
+      console.error(
+        `Deferred Discord update failed with HTTP ${discordResponse.status}${
+          body ? `: ${body}` : ""
+        }`
+      );
+    }
+  } catch (error) {
+    console.error("Deferred Discord update failed", error);
+  }
 }
 
 export async function verifyDiscordSignature(headers, rawBody, publicKeyHex) {

@@ -4,7 +4,7 @@ import { triggerMonitorWorkflow } from "./github.js";
 const SCHEDULER_STATUS_KEY = "monitor:last-scheduled-run";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     try {
@@ -20,7 +20,7 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/interactions") {
-        return await handleInteraction(request, env);
+        return await handleInteraction(request, env, ctx);
       }
 
       return new Response("Not found", { status: 404 });

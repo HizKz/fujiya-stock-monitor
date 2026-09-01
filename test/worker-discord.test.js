@@ -126,6 +126,62 @@ test("handleInteraction verifies Discord and updates the message page", async ()
   assert.match(result.data.embeds[0].description, /Product 2/);
 });
 
+test("handleInteraction acknowledges immediately and updates the message in the background", async () => {
+  const notificationId = "d".repeat(32);
+  const kv = new MemoryKv();
+  await kv.put(
+    `notification:${notificationId}`,
+    JSON.stringify({ products: sampleProducts, test: false })
+  );
+
+  const keyPair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]);
+  const publicKeyHex = bytesToHex(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+  const timestamp = "1720000001";
+  const rawBody = JSON.stringify({
+    type: 3,
+    application_id: "discord-app-id",
+    token: "interaction-token",
+    data: { custom_id: `stock:${notificationId}:2` },
+  });
+  const signature = await crypto.subtle.sign(
+    "Ed25519",
+    keyPair.privateKey,
+    new TextEncoder().encode(timestamp + rawBody)
+  );
+  const headers = new Headers({
+    "X-Signature-Ed25519": bytesToHex(signature),
+    "X-Signature-Timestamp": timestamp,
+  });
+  const backgroundTasks = [];
+  const discordRequests = [];
+
+  const response = await handleInteraction(
+    new Request("https://example.workers.dev/interactions", {
+      method: "POST",
+      headers,
+      body: rawBody,
+    }),
+    { NOTIFICATIONS: kv, DISCORD_PUBLIC_KEY: publicKeyHex },
+    { waitUntil: (task) => backgroundTasks.push(task) },
+    {
+      fetchImpl: async (url, options) => {
+        discordRequests.push({ url, options });
+        return new Response(null, { status: 204 });
+      },
+    }
+  );
+
+  assert.deepEqual(await response.json(), { type: 6 });
+  assert.equal(backgroundTasks.length, 1);
+  await backgroundTasks[0];
+  assert.equal(
+    discordRequests[0].url,
+    "https://discord.com/api/v10/webhooks/discord-app-id/interaction-token/messages/@original"
+  );
+  const payload = JSON.parse(discordRequests[0].options.body);
+  assert.equal(payload.embeds[0].footer.text, "3 / 12件");
+});
+
 class MemoryKv {
   constructor() {
     this.values = new Map();
