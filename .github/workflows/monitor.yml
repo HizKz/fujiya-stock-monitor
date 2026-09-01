@@ -2,7 +2,9 @@ name: Monitor Fujiya AVIC arrivals
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # GitHub Actions is busiest at round-number minute marks. Keep the
+    # ten-minute interval while shifting away from :00, :10, :20, ...
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
     inputs:
       mode:
