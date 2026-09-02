@@ -3,24 +3,31 @@
   "version": "1.0.0",
   "description": "Monitor Fujiya AVIC used-product arrivals and notify Discord",
   "type": "module",
+  "packageManager": "bun@1.3.14",
   "scripts": {
-    "start": "node src/main.js",
-    "dry-run": "node src/main.js --dry-run",
-    "bot:test": "node src/main.js --bot-test",
-    "webhook:test": "node src/main.js --webhook-test",
-    "test": "node --test",
-    "worker:dev": "wrangler dev",
-    "worker:deploy": "wrangler deploy",
-    "worker:check": "wrangler deploy --dry-run"
+    "start": "bun src/main.ts",
+    "dry-run": "bun src/main.ts --dry-run",
+    "bot:test": "bun src/main.ts --bot-test",
+    "webhook:test": "bun src/main.ts --webhook-test",
+    "test": "bun test",
+    "typecheck": "bun run worker:types:check && bunx tsc --noEmit",
+    "check": "bun run typecheck && bun test && bun run worker:check",
+    "worker:types": "bunx wrangler types",
+    "worker:types:check": "bunx wrangler types --check",
+    "worker:dev": "bunx wrangler dev",
+    "worker:deploy": "bunx wrangler deploy",
+    "worker:check": "bunx wrangler deploy --dry-run"
   },
   "engines": {
-    "node": ">=22"
+    "bun": ">=1.3.14 <1.4"
   },
   "dependencies": {
     "cheerio": "^1.1.2",
     "dotenv": "^17.4.2"
   },
   "devDependencies": {
+    "@types/bun": "1.3.14",
+    "typescript": "7.0.2",
     "wrangler": "^4.0.0"
   }
 }

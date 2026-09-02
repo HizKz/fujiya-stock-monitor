@@ -1,27 +1,39 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "bun:test";
 
+import type { Product } from "../shared/domain.ts";
 import {
   createNotification,
   handleInteraction,
+  type NotificationEnv,
+  type NotificationKv,
   verifyDiscordSignature,
-} from "../worker/discord.js";
+} from "../worker/discord.ts";
+import { createProduct, jsonBody, must, responseJson } from "./helpers.ts";
 
-const sampleProducts = Array.from({ length: 12 }, (_, index) => ({
-  id: String(index + 1),
-  name: `Product ${index + 1}`,
-  price: "￥12,800(税込)",
-  condition: "AB+",
-  stock: "在庫あり",
-  url: `https://www.fujiya-avic.co.jp/shop/g/g${index + 1}/`,
-  brandEnglish: "SAMPLE AUDIO",
-  brandJapanese: "サンプルオーディオ",
-  imageUrl: "https://www.fujiya-avic.co.jp/sample.jpg",
-}));
+const sampleProducts: Product[] = Array.from({ length: 12 }, (_, index) =>
+  createProduct({
+    id: String(index + 1),
+    name: `Product ${index + 1}`,
+    url: `https://www.fujiya-avic.co.jp/shop/g/g${index + 1}/`,
+  })
+);
+
+interface NotificationResponse {
+  ok: boolean;
+  duplicate: boolean;
+  notificationId: string;
+}
+
+interface InteractionResponse {
+  type: number;
+  data: {
+    embeds: Array<{ description: string; footer: { text: string } }>;
+  };
+}
 
 test("createNotification stores the pages and sends one Bot message", async () => {
   const kv = new MemoryKv();
-  const discordRequests = [];
+  const discordRequests: Array<{ url: string; init: RequestInit | undefined }> = [];
   const request = new Request("https://example.workers.dev/notifications", {
     method: "POST",
     headers: {
@@ -32,29 +44,30 @@ test("createNotification stores the pages and sends one Bot message", async () =
     body: JSON.stringify({ products: sampleProducts }),
   });
 
-  const response = await createNotification(
-    request,
-    createEnv(kv),
-    {
-      fetchImpl: async (url, options) => {
-        discordRequests.push({ url, options });
-        return new Response(JSON.stringify({ id: "discord-message-id" }), { status: 200 });
-      },
-    }
-  );
-  const result = await response.json();
+  const response = await createNotification(request, createEnv(kv), {
+    fetchImpl: async (url, init) => {
+      discordRequests.push({ url: String(url), init });
+      return new Response(JSON.stringify({ id: "discord-message-id" }), { status: 200 });
+    },
+  });
+  const result = await responseJson<NotificationResponse>(response);
 
-  assert.equal(response.status, 201);
-  assert.equal(result.ok, true);
-  assert.equal(discordRequests.length, 1);
-  assert.equal(discordRequests[0].options.headers.Authorization, "Bot discord-secret");
-  const payload = JSON.parse(discordRequests[0].options.body);
-  assert.equal(payload.embeds.length, 1);
-  assert.equal(payload.embeds[0].footer.text, "1 / 12件");
-  assert.equal(payload.components[0].components.length, 4);
-  assert.equal(payload.components[0].components[0].label, "⏮ 最初へ");
-  assert.ok(await kv.get(`notification:${result.notificationId}`));
-  assert.equal(await kv.get(`idempotency:${"a".repeat(64)}`), result.notificationId);
+  const discordRequest = must(discordRequests[0]);
+  const headers = discordRequest.init?.headers as Record<string, string>;
+  const payload = jsonBody(discordRequest.init) as {
+    embeds: Array<{ footer: { text: string } }>;
+    components: Array<{ components: Array<{ label: string }> }>;
+  };
+  expect(response.status).toBe(201);
+  expect(result.ok).toBe(true);
+  expect(discordRequests).toHaveLength(1);
+  expect(headers.Authorization).toBe("Bot discord-secret");
+  expect(payload.embeds).toHaveLength(1);
+  expect(payload.embeds[0]?.footer.text).toBe("1 / 12件");
+  expect(payload.components[0]?.components).toHaveLength(4);
+  expect(payload.components[0]?.components[0]?.label).toBe("⏮ 最初へ");
+  expect(await kv.get(`notification:${result.notificationId}`)).toBeTruthy();
+  expect(await kv.get(`idempotency:${"a".repeat(64)}`)).toBe(result.notificationId);
 });
 
 test("createNotification deduplicates a successful monitor delivery", async () => {
@@ -76,7 +89,7 @@ test("createNotification deduplicates a successful monitor delivery", async () =
     },
   });
 
-  assert.deepEqual(await response.json(), {
+  expect(await responseJson<Record<string, unknown>>(response)).toEqual({
     ok: true,
     duplicate: true,
     notificationId: "existing-notification",
@@ -108,7 +121,7 @@ test("handleInteraction verifies Discord and updates the message page", async ()
     "X-Signature-Timestamp": timestamp,
   });
 
-  assert.equal(await verifyDiscordSignature(headers, rawBody, publicKeyHex), true);
+  expect(await verifyDiscordSignature(headers, rawBody, publicKeyHex)).toBe(true);
 
   const response = await handleInteraction(
     new Request("https://example.workers.dev/interactions", {
@@ -118,12 +131,12 @@ test("handleInteraction verifies Discord and updates the message page", async ()
     }),
     { NOTIFICATIONS: kv, DISCORD_PUBLIC_KEY: publicKeyHex }
   );
-  const result = await response.json();
+  const result = await responseJson<InteractionResponse>(response);
 
-  assert.equal(result.type, 7);
-  assert.equal(result.data.embeds.length, 1);
-  assert.equal(result.data.embeds[0].footer.text, "2 / 12件");
-  assert.match(result.data.embeds[0].description, /Product 2/);
+  expect(result.type).toBe(7);
+  expect(result.data.embeds).toHaveLength(1);
+  expect(result.data.embeds[0]?.footer.text).toBe("2 / 12件");
+  expect(result.data.embeds[0]?.description).toMatch(/Product 2/);
 });
 
 test("handleInteraction acknowledges immediately and updates the message in the background", async () => {
@@ -152,8 +165,8 @@ test("handleInteraction acknowledges immediately and updates the message in the 
     "X-Signature-Ed25519": bytesToHex(signature),
     "X-Signature-Timestamp": timestamp,
   });
-  const backgroundTasks = [];
-  const discordRequests = [];
+  const backgroundTasks: Promise<unknown>[] = [];
+  const discordRequests: Array<{ url: string; init: RequestInit | undefined }> = [];
 
   const response = await handleInteraction(
     new Request("https://example.workers.dev/interactions", {
@@ -162,45 +175,49 @@ test("handleInteraction acknowledges immediately and updates the message in the 
       body: rawBody,
     }),
     { NOTIFICATIONS: kv, DISCORD_PUBLIC_KEY: publicKeyHex },
-    { waitUntil: (task) => backgroundTasks.push(task) },
     {
-      fetchImpl: async (url, options) => {
-        discordRequests.push({ url, options });
+      waitUntil: (task) => {
+        backgroundTasks.push(task);
+      },
+    },
+    {
+      fetchImpl: async (url, init) => {
+        discordRequests.push({ url: String(url), init });
         return new Response(null, { status: 204 });
       },
     }
   );
 
-  assert.deepEqual(await response.json(), { type: 6 });
-  assert.equal(backgroundTasks.length, 1);
-  await backgroundTasks[0];
-  assert.equal(
-    discordRequests[0].url,
+  expect(await responseJson<Record<string, unknown>>(response)).toEqual({ type: 6 });
+  expect(backgroundTasks).toHaveLength(1);
+  await must(backgroundTasks[0]);
+  const discordRequest = must(discordRequests[0]);
+  expect(discordRequest.url).toBe(
     "https://discord.com/api/v10/webhooks/discord-app-id/interaction-token/messages/@original"
   );
-  const payload = JSON.parse(discordRequests[0].options.body);
-  assert.equal(payload.embeds[0].footer.text, "3 / 12件");
+  const payload = jsonBody(discordRequest.init) as {
+    embeds: Array<{ footer: { text: string } }>;
+  };
+  expect(payload.embeds[0]?.footer.text).toBe("3 / 12件");
 });
 
-class MemoryKv {
-  constructor() {
-    this.values = new Map();
-  }
+class MemoryKv implements NotificationKv {
+  readonly values = new Map<string, string>();
 
-  async get(key) {
+  async get(key: string): Promise<string | null> {
     return this.values.get(key) ?? null;
   }
 
-  async put(key, value) {
+  async put(key: string, value: string): Promise<void> {
     this.values.set(key, value);
   }
 
-  async delete(key) {
+  async delete(key: string): Promise<void> {
     this.values.delete(key);
   }
 }
 
-function createEnv(kv) {
+function createEnv(kv: NotificationKv): NotificationEnv {
   return {
     NOTIFICATIONS: kv,
     NOTIFIER_API_TOKEN: "notifier-secret",
@@ -209,6 +226,6 @@ function createEnv(kv) {
   };
 }
 
-function bytesToHex(value) {
+function bytesToHex(value: ArrayBuffer): string {
   return [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

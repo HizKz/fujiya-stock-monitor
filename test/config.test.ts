@@ -1,36 +1,32 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "bun:test";
 
-import { validateConfig } from "../src/config.js";
+import { validateConfig } from "../src/config.ts";
 
 test("validateConfig accepts Bot API credentials", () => {
-  assert.doesNotThrow(() =>
+  expect(() =>
     validateConfig("monitor", {
       NOTIFIER_API_URL: "https://example.workers.dev/notifications",
       NOTIFIER_API_TOKEN: "secret",
     })
-  );
+  ).not.toThrow();
 });
 
 test("validateConfig keeps the Discord webhook migration fallback", () => {
-  assert.doesNotThrow(() =>
+  expect(() =>
     validateConfig("monitor", { DISCORD_WEBHOOK_URL: "https://discord.example/webhook" })
-  );
+  ).not.toThrow();
 });
 
 test("validateConfig rejects incomplete Bot API credentials", () => {
-  assert.throws(
-    () => validateConfig("monitor", { NOTIFIER_API_URL: "https://example.workers.dev" }),
-    /must be set together/
-  );
+  expect(() =>
+    validateConfig("monitor", { NOTIFIER_API_URL: "https://example.workers.dev" })
+  ).toThrow(/must be set together/);
 });
 
 test("validateConfig does not silently fall back to a webhook during a Bot test", () => {
-  assert.throws(
-    () =>
+  expect(() =>
       validateConfig("notification-test", {
         DISCORD_WEBHOOK_URL: "https://discord.example/webhook",
-      }),
-    /Bot test requires NOTIFIER_API_URL and NOTIFIER_API_TOKEN/
-  );
+      })
+  ).toThrow(/Bot test requires NOTIFIER_API_URL and NOTIFIER_API_TOKEN/);
 });

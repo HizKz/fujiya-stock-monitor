@@ -1,20 +1,22 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import type { MonitorState, Product } from "../shared/domain.ts";
+
 const SCHEMA_VERSION = 1;
 
-export async function loadState(filePath) {
+export async function loadState(filePath: string): Promise<MonitorState> {
   try {
     const parsed = JSON.parse(await readFile(filePath, "utf8"));
     validateState(parsed);
     return parsed;
   } catch (error) {
-    if (error?.code === "ENOENT") return emptyState();
+    if (isErrnoException(error) && error.code === "ENOENT") return emptyState();
     throw error;
   }
 }
 
-export async function saveState(filePath, state) {
+export async function saveState(filePath: string, state: MonitorState): Promise<void> {
   validateState(state);
   await mkdir(path.dirname(filePath), { recursive: true });
 
@@ -24,7 +26,7 @@ export async function saveState(filePath, state) {
   await rename(temporaryPath, filePath);
 }
 
-export function findNewProducts(products, state) {
+export function findNewProducts(products: Product[], state: MonitorState): Product[] {
   const seenIds = new Set(state.seenProductIds);
   const firstKnownIndex = products.findIndex((product) => seenIds.has(product.id));
 
@@ -35,7 +37,7 @@ export function findNewProducts(products, state) {
   return products.slice(0, firstKnownIndex).filter((product) => !seenIds.has(product.id));
 }
 
-export function withSeenProducts(state, products) {
+export function withSeenProducts(state: MonitorState, products: Product[]): MonitorState {
   const ids = [...state.seenProductIds];
   const known = new Set(ids);
 
@@ -52,13 +54,13 @@ export function withSeenProducts(state, products) {
   };
 }
 
-export function emptyState() {
+export function emptyState(): MonitorState {
   return { schemaVersion: SCHEMA_VERSION, seenProductIds: [] };
 }
 
-function validateState(state) {
+function validateState(state: unknown): asserts state is MonitorState {
   if (
-    !state ||
+    !isRecord(state) ||
     state.schemaVersion !== SCHEMA_VERSION ||
     !Array.isArray(state.seenProductIds) ||
     state.seenProductIds.some((id) => typeof id !== "string") ||
@@ -66,4 +68,12 @@ function validateState(state) {
   ) {
     throw new Error("State file is invalid or uses an unsupported schema");
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }

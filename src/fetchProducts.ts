@@ -1,15 +1,28 @@
 import * as cheerio from "cheerio";
 
-const STOCK_LABELS = new Set(["在庫あり", "売り切れ"]);
+import type { FetchLike, Product, RuntimeConfig, StockStatus } from "../shared/domain.ts";
 
-export async function fetchProducts(runtimeConfig, options = {}) {
+const STOCK_LABELS = new Set<StockStatus>(["在庫あり", "売り切れ"]);
+
+interface FetchOptions {
+  fetchImpl?: FetchLike;
+  sleepImpl?: (milliseconds: number) => Promise<void>;
+}
+
+export async function fetchProducts(
+  runtimeConfig: RuntimeConfig,
+  options: FetchOptions = {}
+): Promise<Product[]> {
   const html = await fetchCategoryHtml(runtimeConfig, options);
   return parseProducts(html, runtimeConfig.targetUrl, runtimeConfig.minimumProductCount);
 }
 
-export async function fetchCategoryHtml(runtimeConfig, options = {}) {
-  const fetchImpl = options.fetchImpl || fetch;
-  const sleepImpl = options.sleepImpl || sleep;
+export async function fetchCategoryHtml(
+  runtimeConfig: RuntimeConfig,
+  options: FetchOptions = {}
+): Promise<string> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleepImpl = options.sleepImpl ?? sleep;
   const maxAttempts = 2;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -51,7 +64,7 @@ export async function fetchCategoryHtml(runtimeConfig, options = {}) {
         continue;
       }
 
-      if (error?.name === "AbortError") {
+      if (isAbortError(error)) {
         throw new Error(`Target site request timed out after ${runtimeConfig.requestTimeoutMs}ms`);
       }
 
@@ -64,7 +77,11 @@ export async function fetchCategoryHtml(runtimeConfig, options = {}) {
   throw new Error("Target site request failed after retry");
 }
 
-export function parseProducts(html, targetUrl, minimumProductCount = 1) {
+export function parseProducts(
+  html: string,
+  targetUrl: string,
+  minimumProductCount = 1
+): Product[] {
   const $ = cheerio.load(html);
   const cards = $("dl.block-thumbnail-t--goods.js-enhanced-ecommerce-item");
 
@@ -74,8 +91,8 @@ export function parseProducts(html, targetUrl, minimumProductCount = 1) {
     );
   }
 
-  const products = [];
-  const seenIds = new Set();
+  const products: Product[] = [];
+  const seenIds = new Set<string>();
 
   cards.each((index, element) => {
     const card = $(element);
@@ -93,7 +110,7 @@ export function parseProducts(html, targetUrl, minimumProductCount = 1) {
       .find("img[alt]")
       .toArray()
       .map((image) => $(image).attr("alt"))
-      .find((alt) => STOCK_LABELS.has(alt));
+      .find(isStockStatus);
 
     if (!id || !href || !name || !price || !condition || !stock) {
       throw new Error(`Parser health check failed: product card ${index + 1} is incomplete`);
@@ -120,16 +137,16 @@ export function parseProducts(html, targetUrl, minimumProductCount = 1) {
   return products;
 }
 
-function extractProductId(href) {
+function extractProductId(href: string | undefined): string | null {
   if (!href) return null;
   return href.match(/\/shop\/g\/g(\d+)\/?(?:[?#].*)?$/)?.[1] || null;
 }
 
-function normalizeText(value) {
+function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function parseRetryAfterMs(value) {
+function parseRetryAfterMs(value: string | null): number {
   if (!value) return 10_000;
 
   const seconds = Number(value);
@@ -139,10 +156,18 @@ function parseRetryAfterMs(value) {
   return Number.isFinite(dateMs) ? Math.max(0, dateMs - Date.now()) : 10_000;
 }
 
-function isRetryableNetworkError(error) {
-  return error?.name === "AbortError" || error instanceof TypeError;
+function isRetryableNetworkError(error: unknown): boolean {
+  return isAbortError(error) || error instanceof TypeError;
 }
 
-function sleep(ms) {
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isStockStatus(value: string | undefined): value is StockStatus {
+  return value !== undefined && STOCK_LABELS.has(value as StockStatus);
+}
+
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
