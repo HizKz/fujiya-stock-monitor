@@ -35,6 +35,7 @@ export async function main(args = process.argv.slice(2)) {
 
   const state = await loadState(config.stateFile);
   const nextState = withSeenProducts(state, products);
+  const unseenProductCount = nextState.seenProductIds.length - state.seenProductIds.length;
 
   if (state.seenProductIds.length === 0) {
     await saveState(config.stateFile, nextState);
@@ -44,6 +45,14 @@ export async function main(args = process.argv.slice(2)) {
 
   const newProducts = findNewProducts(products, state);
   if (newProducts.length === 0) {
+    if (unseenProductCount > 0) {
+      await saveState(config.stateFile, nextState);
+      console.log(
+        `[INFO] Saved ${unseenProductCount} older rollover products without notification`
+      );
+      return;
+    }
+
     console.log("[INFO] No new products found");
     return;
   }

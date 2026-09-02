@@ -26,7 +26,13 @@ export async function saveState(filePath, state) {
 
 export function findNewProducts(products, state) {
   const seenIds = new Set(state.seenProductIds);
-  return products.filter((product) => !seenIds.has(product.id));
+  const firstKnownIndex = products.findIndex((product) => seenIds.has(product.id));
+
+  // The category is sorted by newest first. Only an unseen prefix represents
+  // products inserted at the top. Unseen products after a known item are older
+  // products rolling over from page 2 as items disappear from page 1.
+  if (firstKnownIndex < 0) return [];
+  return products.slice(0, firstKnownIndex).filter((product) => !seenIds.has(product.id));
 }
 
 export function withSeenProducts(state, products) {
