@@ -1,26 +1,50 @@
 import { createHash } from "node:crypto";
 
-export async function postBotNotification(apiUrl, apiToken, products, options = {}) {
+import type { FetchLike, NotificationInput, Product } from "../shared/domain.ts";
+
+interface RequestOptions {
+  fetchImpl?: FetchLike;
+  sleepImpl?: (milliseconds: number) => Promise<void>;
+  timeoutMs?: number;
+  idempotencyKey?: string;
+}
+
+export async function postBotNotification(
+  apiUrl: string,
+  apiToken: string,
+  products: Product[],
+  options: RequestOptions = {}
+): Promise<void> {
   return postNotification(apiUrl, apiToken, { products }, {
     ...options,
     idempotencyKey: buildIdempotencyKey(products),
   });
 }
 
-export async function postBotTestNotification(apiUrl, apiToken, products, options = {}) {
+export async function postBotTestNotification(
+  apiUrl: string,
+  apiToken: string,
+  products: Product[],
+  options: RequestOptions = {}
+): Promise<void> {
   return postNotification(apiUrl, apiToken, { products, test: true }, options);
 }
 
-export function buildIdempotencyKey(products) {
+export function buildIdempotencyKey(products: Pick<Product, "id">[]): string {
   const ids = products.map((product) => product.id).sort();
   return createHash("sha256").update(ids.join("\n")).digest("hex");
 }
 
-async function postNotification(apiUrl, apiToken, payload, options) {
-  const fetchImpl = options.fetchImpl || fetch;
-  const sleepImpl = options.sleepImpl || sleep;
-  const timeoutMs = options.timeoutMs || 15_000;
-  const headers = {
+async function postNotification(
+  apiUrl: string,
+  apiToken: string,
+  payload: NotificationInput,
+  options: RequestOptions
+): Promise<void> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleepImpl = options.sleepImpl ?? sleep;
+  const timeoutMs = options.timeoutMs ?? 15_000;
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${apiToken}`,
     "Content-Type": "application/json",
   };
@@ -45,7 +69,13 @@ async function postNotification(apiUrl, apiToken, payload, options) {
   }
 }
 
-async function sendRequest(fetchImpl, apiUrl, headers, payload, timeoutMs) {
+async function sendRequest(
+  fetchImpl: FetchLike,
+  apiUrl: string,
+  headers: Record<string, string>,
+  payload: NotificationInput,
+  timeoutMs: number
+): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -57,7 +87,7 @@ async function sendRequest(fetchImpl, apiUrl, headers, payload, timeoutMs) {
       signal: controller.signal,
     });
   } catch (error) {
-    if (error?.name === "AbortError") {
+    if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Bot notification API timed out after ${timeoutMs}ms`);
     }
     throw error;
@@ -66,15 +96,15 @@ async function sendRequest(fetchImpl, apiUrl, headers, payload, timeoutMs) {
   }
 }
 
-async function getRetryAfterMs(response) {
+async function getRetryAfterMs(response: Response): Promise<number> {
   const header = response.headers.get("Retry-After");
   if (header && Number.isFinite(Number(header))) {
     return Math.max(0, Math.ceil(Number(header) * 1_000));
   }
 
   try {
-    const body = await response.json();
-    if (Number.isFinite(Number(body.retry_after))) {
+    const body: unknown = await response.json();
+    if (isRecord(body) && Number.isFinite(Number(body.retry_after))) {
       return Math.max(0, Math.ceil(Number(body.retry_after) * 1_000));
     }
   } catch {
@@ -84,7 +114,7 @@ async function getRetryAfterMs(response) {
   return 3_000;
 }
 
-async function safeResponseText(response) {
+async function safeResponseText(response: Response): Promise<string> {
   try {
     return (await response.text()).slice(0, 500);
   } catch {
@@ -92,6 +122,10 @@ async function safeResponseText(response) {
   }
 }
 
-function sleep(ms) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

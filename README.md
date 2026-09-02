@@ -69,12 +69,12 @@ Repository permissions → Actions: Read and write
 
 ## 3. Cloudflareへデプロイする
 
-Node.js 22以上の環境で実行します。
+Bun 1.3.14をインストールした環境で実行します。
 
 ```bash
-npm install
-npx wrangler login
-npx wrangler kv namespace create NOTIFICATIONS
+bun install
+bunx wrangler login
+bunx wrangler kv namespace create NOTIFICATIONS
 ```
 
 最後のコマンドに表示されたKVのIDを、`wrangler.jsonc`の次の部分へ入れます。
@@ -93,17 +93,17 @@ openssl rand -hex 32
 次の5項目をCloudflareへ登録します。コマンド実行後のプロンプトへ値を貼り付けてください。
 
 ```bash
-npx wrangler secret put DISCORD_BOT_TOKEN
-npx wrangler secret put DISCORD_PUBLIC_KEY
-npx wrangler secret put DISCORD_CHANNEL_ID
-npx wrangler secret put GITHUB_TOKEN
-npx wrangler secret put NOTIFIER_API_TOKEN
+bunx wrangler secret put DISCORD_BOT_TOKEN
+bunx wrangler secret put DISCORD_PUBLIC_KEY
+bunx wrangler secret put DISCORD_CHANNEL_ID
+bunx wrangler secret put GITHUB_TOKEN
+bunx wrangler secret put NOTIFIER_API_TOKEN
 ```
 
 デプロイします。
 
 ```bash
-npm run worker:deploy
+bun run worker:deploy
 ```
 
 表示されたURLを控えます。例：
@@ -188,14 +188,14 @@ https://fujiya-stock-bot.fujiya-stock-monitor.workers.dev/health
 実サイトのHTML解析だけを確認します。Discord通知と状態更新は行いません。
 
 ```bash
-npm run dry-run
+bun run dry-run
 ```
 
 Workerのローカル開発用Secretは`.dev.vars.example`を`.dev.vars`へコピーして設定します。実際のSecretをコミットしないでください。
 
 ```bash
 cp .dev.vars.example .dev.vars
-npm run worker:dev
+bun run worker:dev
 ```
 
 ローカルCronを試す場合は、別のターミナルで次を実行します。
@@ -209,31 +209,37 @@ curl "http://localhost:8787/cdn-cgi/handler/scheduled"
 単体テストは実サイト、Discord、GitHub、Cloudflareへ接続しません。
 
 ```bash
-npm test
-npm run worker:check
+bun run typecheck
+bun test
+bun run worker:check
 ```
 
 ## ファイル構成
 
 ```text
 src/
-  config.js          監視URLと環境変数の検証
-  fetchProducts.js   HTML取得と商品カード解析
-  state.js           既知商品コードの読み書き
-  discord.js         移行中のDiscord Webhook通知
-  notifier.js        Cloudflare Bot APIクライアント
-  main.js            実行モードと処理フロー
+  app.ts             依存性を注入できる監視処理本体
+  config.ts          監視URLと環境変数の検証
+  fetchProducts.ts   HTML取得と商品カード解析
+  state.ts           既知商品コードの読み書き
+  discord.ts         移行中のDiscord Webhook通知
+  notifier.ts        Cloudflare Bot APIクライアント
+  main.ts            Bun向けの薄い実行入口
+shared/
+  domain.ts          Node側とWorker側で共有するデータ型
 worker/
-  index.js           HTTP APIとCronの入口
-  discord.js         Bot投稿・署名検証・ページ操作
-  github.js          GitHub Actionsの即時起動
-  render.js          Discordメッセージとボタンの組み立て
+  index.ts           HTTP APIとCronの入口
+  discord.ts         Bot投稿・署名検証・ページ操作
+  github.ts          GitHub Actionsの即時起動
+  render.ts          Discordメッセージとボタンの組み立て
 data/
   seen-products.json 既知商品コード
 .github/workflows/
   ci.yml              push・PR時の単体テスト
   monitor.yml         監視処理と移行用の予備Cron
 wrangler.jsonc        Cloudflare Worker、KV、Cron設定
+tsconfig.json         strictなTypeScript型チェック設定
+bun.lock              Bunの依存関係ロックファイル
 ```
 
 ## 運用上の注意

@@ -1,8 +1,9 @@
-import assert from "node:assert/strict";
+import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
-import test from "node:test";
 
-import { fetchCategoryHtml, parseProducts } from "../src/fetchProducts.js";
+import type { RuntimeConfig } from "../shared/domain.ts";
+
+import { fetchCategoryHtml, parseProducts } from "../src/fetchProducts.ts";
 
 const targetUrl = "https://www.fujiya-avic.co.jp/shop/c/c40_ssd/";
 const fixtureUrl = new URL("./fixtures/category.html", import.meta.url);
@@ -11,7 +12,7 @@ test("parseProducts extracts new and sold-out product fields", async () => {
   const html = await readFile(fixtureUrl, "utf8");
   const products = parseProducts(html, targetUrl, 2);
 
-  assert.deepEqual(products, [
+  expect(products).toEqual([
     {
       id: "240000000001",
       name: "Sample DAC Black",
@@ -38,15 +39,14 @@ test("parseProducts extracts new and sold-out product fields", async () => {
 });
 
 test("parseProducts rejects an empty or challenge page", () => {
-  assert.throws(
-    () => parseProducts("<html><body>challenge</body></html>", targetUrl, 1),
+  expect(() => parseProducts("<html><body>challenge</body></html>", targetUrl, 1)).toThrow(
     /Parser health check failed/
   );
 });
 
 test("fetchCategoryHtml retries a 429 once using Retry-After", async () => {
   let requestCount = 0;
-  const sleeps = [];
+  const sleeps: number[] = [];
   const runtimeConfig = createRuntimeConfig();
 
   const html = await fetchCategoryHtml(runtimeConfig, {
@@ -60,18 +60,20 @@ test("fetchCategoryHtml retries a 429 once using Retry-After", async () => {
       }
       return new Response("<html>ok</html>", { status: 200 });
     },
-    sleepImpl: async (ms) => sleeps.push(ms),
+    sleepImpl: async (ms) => {
+      sleeps.push(ms);
+    },
   });
 
-  assert.equal(html, "<html>ok</html>");
-  assert.equal(requestCount, 2);
-  assert.deepEqual(sleeps, [2_000]);
+  expect(html).toBe("<html>ok</html>");
+  expect(requestCount).toBe(2);
+  expect(sleeps).toEqual([2_000]);
 });
 
 test("fetchCategoryHtml does not retry a 403", async () => {
   let requestCount = 0;
 
-  await assert.rejects(
+  await expect(
     fetchCategoryHtml(createRuntimeConfig(), {
       fetchImpl: async () => {
         requestCount += 1;
@@ -79,18 +81,19 @@ test("fetchCategoryHtml does not retry a 403", async () => {
       },
       sleepImpl: async () => {},
     }),
-    /returned 403/
-  );
+  ).rejects.toThrow(/returned 403/);
 
-  assert.equal(requestCount, 1);
+  expect(requestCount).toBe(1);
 });
 
-function createRuntimeConfig() {
+function createRuntimeConfig(): RuntimeConfig {
   return {
     targetUrl,
+    stateFile: "/tmp/test-state.json",
     requestTimeoutMs: 1_000,
     retryDelayMs: 1,
     maxRetryAfterMs: 60_000,
+    minimumProductCount: 1,
     userAgent: "test-agent",
   };
 }

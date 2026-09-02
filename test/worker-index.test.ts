@@ -1,16 +1,21 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "bun:test";
 
-import worker, { handleScheduled } from "../worker/index.js";
+import type { SchedulerStatus } from "../shared/domain.ts";
+import type { NotificationKv } from "../worker/discord.ts";
+import worker, { handleScheduled } from "../worker/index.ts";
+import { responseJson } from "./helpers.ts";
 
-function createKv(initialValue = null) {
+function createKv(initialValue: string | null = null): NotificationKv {
   let value = initialValue;
   return {
     async get() {
       return value;
     },
-    async put(_key, nextValue) {
+    async put(_key: string, nextValue: string) {
       value = nextValue;
+    },
+    async delete() {
+      value = null;
     },
   };
 }
@@ -29,13 +34,13 @@ test("scheduled run records a successful GitHub dispatch", async () => {
     }
   );
 
-  assert.equal(dispatched, true);
-  const status = JSON.parse(await kv.get());
-  assert.equal(status.ok, true);
-  assert.equal(status.action, "dispatched");
-  assert.equal(status.cron, "*/10 * * * *");
-  assert.equal(status.scheduledTime, "2026-09-02T00:10:00.000Z");
-  assert.ok(status.lastDispatchAt);
+  expect(dispatched).toBe(true);
+  const status = JSON.parse((await kv.get("status")) ?? "null") as SchedulerStatus;
+  expect(status.ok).toBe(true);
+  expect(status.action).toBe("dispatched");
+  expect(status.cron).toBe("*/10 * * * *");
+  expect(status.scheduledTime).toBe("2026-09-02T00:10:00.000Z");
+  expect(status.lastDispatchAt).toBeTruthy();
 });
 
 test("scheduled run skips GitHub dispatch during the ten-minute interval", async () => {
@@ -54,12 +59,12 @@ test("scheduled run skips GitHub dispatch during the ten-minute interval", async
     }
   );
 
-  assert.equal(dispatchCount, 0);
-  const status = JSON.parse(await kv.get());
-  assert.equal(status.ok, true);
-  assert.equal(status.action, "skipped");
-  assert.equal(status.lastDispatchAt, lastDispatchAt);
-  assert.equal(status.nextDispatchAfter, "2026-09-02T00:20:00.000Z");
+  expect(dispatchCount).toBe(0);
+  const status = JSON.parse((await kv.get("status")) ?? "null") as SchedulerStatus;
+  expect(status.ok).toBe(true);
+  expect(status.action).toBe("skipped");
+  expect(status.lastDispatchAt).toBe(lastDispatchAt);
+  expect(status.nextDispatchAfter).toBe("2026-09-02T00:20:00.000Z");
 });
 
 test("health endpoint returns the last scheduler status", async () => {
@@ -68,8 +73,8 @@ test("health endpoint returns the last scheduler status", async () => {
     NOTIFICATIONS: createKv(savedStatus),
   });
 
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
+  expect(response.status).toBe(200);
+  expect(await responseJson<Record<string, unknown>>(response)).toEqual({
     ok: true,
     scheduler: { ok: true, completedAt: "2026-09-02T00:10:01.000Z" },
   });
@@ -78,7 +83,7 @@ test("health endpoint returns the last scheduler status", async () => {
 test("scheduled run records a failed GitHub dispatch", async () => {
   const kv = createKv();
 
-  await assert.rejects(
+  await expect(
     handleScheduled(
       { cron: "*/10 * * * *", scheduledTime: Date.UTC(2026, 8, 2, 0, 20) },
       { NOTIFICATIONS: kv },
@@ -87,11 +92,10 @@ test("scheduled run records a failed GitHub dispatch", async () => {
           throw new Error("GitHub rejected the request");
         },
       }
-    ),
-    /GitHub rejected/
-  );
+    )
+  ).rejects.toThrow(/GitHub rejected/);
 
-  const status = JSON.parse(await kv.get());
-  assert.equal(status.ok, false);
-  assert.equal(status.error, "GitHub rejected the request");
+  const status = JSON.parse((await kv.get("status")) ?? "null") as SchedulerStatus;
+  expect(status.ok).toBe(false);
+  expect(status.error).toBe("GitHub rejected the request");
 });

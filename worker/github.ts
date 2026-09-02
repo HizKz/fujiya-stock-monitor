@@ -1,7 +1,24 @@
+import type { FetchLike } from "../shared/domain.ts";
+
 const GITHUB_API_VERSION = "2026-03-10";
 
-export async function triggerMonitorWorkflow(env, options = {}) {
-  const fetchImpl = options.fetchImpl || fetch;
+export interface GitHubEnv {
+  GITHUB_TOKEN?: string;
+  GITHUB_OWNER?: string;
+  GITHUB_REPO?: string;
+  GITHUB_WORKFLOW?: string;
+  GITHUB_REF?: string;
+}
+
+interface GitHubOptions {
+  fetchImpl?: FetchLike;
+}
+
+export async function triggerMonitorWorkflow(
+  env: GitHubEnv,
+  options: GitHubOptions = {}
+): Promise<void> {
+  const fetchImpl = options.fetchImpl ?? fetch;
   const owner = env.GITHUB_OWNER || "HizKz";
   const repo = env.GITHUB_REPO || "fujiya-stock-monitor";
   const workflow = env.GITHUB_WORKFLOW || "monitor.yml";
@@ -36,7 +53,7 @@ export async function triggerMonitorWorkflow(env, options = {}) {
   console.log(`Triggered ${owner}/${repo} ${workflow} on ${ref}`);
 }
 
-async function safeResponseText(response) {
+async function safeResponseText(response: Response): Promise<string> {
   try {
     return (await response.text()).slice(0, 500);
   } catch {

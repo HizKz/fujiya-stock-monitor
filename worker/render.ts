@@ -1,7 +1,41 @@
+import type { Product } from "../shared/domain.ts";
+
 export const USED_LIST_URL = "https://www.fujiya-avic.co.jp/shop/c/c40_ssd/";
 export const PAGE_SIZE = 1;
 
-export function buildMessage(products, notificationId, page = 0, test = false) {
+export interface DiscordEmbed {
+  title: string;
+  color: number;
+  description: string;
+  thumbnail?: { url: string };
+  footer?: { text: string };
+}
+
+export interface DiscordButton {
+  type: 2;
+  style: 2;
+  label: string;
+  custom_id: string;
+  disabled: boolean;
+}
+
+export interface DiscordActionRow {
+  type: 1;
+  components: DiscordButton[];
+}
+
+export interface DiscordMessage {
+  embeds: DiscordEmbed[];
+  components: DiscordActionRow[];
+  allowed_mentions: { parse: string[] };
+}
+
+export function buildMessage(
+  products: Product[],
+  notificationId: string,
+  page = 0,
+  test = false
+): DiscordMessage {
   if (!Array.isArray(products) || products.length === 0) {
     throw new Error("At least one product is required to create a Discord notification");
   }
@@ -10,7 +44,9 @@ export function buildMessage(products, notificationId, page = 0, test = false) {
   const safePage = Math.min(Math.max(Number(page) || 0, 0), pageCount - 1);
   const firstIndex = safePage * PAGE_SIZE;
   const pageProducts = products.slice(firstIndex, firstIndex + PAGE_SIZE);
-  const embed = productToEmbed(pageProducts[0], products.length, test);
+  const product = pageProducts[0];
+  if (!product) throw new Error("Requested product page is empty");
+  const embed = productToEmbed(product, products.length, test);
   embed.footer = { text: `${safePage + 1} / ${products.length}件` };
 
   return {
@@ -20,7 +56,7 @@ export function buildMessage(products, notificationId, page = 0, test = false) {
   };
 }
 
-function buildActionRow(notificationId, page, pageCount) {
+function buildActionRow(notificationId: string, page: number, pageCount: number): DiscordActionRow {
   return {
     type: 1,
     components: [
@@ -56,7 +92,7 @@ function buildActionRow(notificationId, page, pageCount) {
   };
 }
 
-function productToEmbed(product, totalCount, test) {
+function productToEmbed(product: Product, totalCount: number, test: boolean): DiscordEmbed {
   const brandLines = [product.brandEnglish, product.brandJapanese]
     .filter(Boolean)
     .map((brand) => `[${escapeLinkText(brand)}](${product.url})`);
@@ -69,7 +105,7 @@ function productToEmbed(product, totalCount, test) {
     "",
     `➤ [中古リスト一覧ページを開く](${USED_LIST_URL})`,
   ].join("\n");
-  const embed = {
+  const embed: DiscordEmbed = {
     title: test
       ? `🧪 新着通知の表示テスト（全${totalCount}件）`
       : `🚨 新着商品のお知らせ（全${totalCount}件）`,
@@ -81,6 +117,6 @@ function productToEmbed(product, totalCount, test) {
   return embed;
 }
 
-function escapeLinkText(value) {
-  return String(value).replace(/[\\[\]()]/g, "\\$&");
+function escapeLinkText(value: string): string {
+  return value.replace(/[\\[\]()]/g, "\\$&");
 }

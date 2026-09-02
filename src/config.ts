@@ -1,5 +1,13 @@
 import path from "node:path";
 
+import type { RunMode, RuntimeConfig } from "../shared/domain.ts";
+
+export interface NotificationEnv {
+  NOTIFIER_API_URL?: string;
+  NOTIFIER_API_TOKEN?: string;
+  DISCORD_WEBHOOK_URL?: string;
+}
+
 export const config = {
   targetUrl: "https://www.fujiya-avic.co.jp/shop/c/c40_ssd/",
   stateFile: path.resolve(process.cwd(), "data/seen-products.json"),
@@ -9,9 +17,9 @@ export const config = {
   minimumProductCount: 10,
   userAgent:
     "fujiya-stock-monitor/1.0 (+https://github.com/HizKz/fujiya-stock-monitor)",
-};
+} satisfies RuntimeConfig;
 
-export function validateConfig(mode, env = process.env) {
+export function validateConfig(mode: RunMode, env: NotificationEnv = process.env): void {
   if (mode === "dry-run") return;
 
   const hasBotApiUrl = Boolean(env.NOTIFIER_API_URL);

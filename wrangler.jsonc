@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fujiya-stock-bot",
-  "main": "worker/index.js",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
   "observability": {
