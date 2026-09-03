@@ -70,11 +70,15 @@ export async function handleScheduled(
   const scheduledTime = Number.isFinite(controller.scheduledTime)
     ? new Date(controller.scheduledTime as number).toISOString()
     : null;
+  const intervalReferenceTime = scheduledTime === null ? now.getTime() : Date.parse(scheduledTime);
   const cron = controller.cron ?? null;
   const previousStatus = await readSchedulerStatus(env);
   const lastDispatchTime = Date.parse(previousStatus?.lastDispatchAt ?? "");
 
-  if (Number.isFinite(lastDispatchTime) && now.getTime() - lastDispatchTime < MONITOR_INTERVAL_MS) {
+  if (
+    Number.isFinite(lastDispatchTime) &&
+    intervalReferenceTime - lastDispatchTime < MONITOR_INTERVAL_MS
+  ) {
     await writeSchedulerStatus(env, {
       ok: true,
       action: "skipped",
@@ -91,6 +95,7 @@ export async function handleScheduled(
   try {
     await trigger(env);
     const completedAt = new Date().toISOString();
+    const lastDispatchAt = scheduledTime ?? completedAt;
     await writeSchedulerStatus(env, {
       ok: true,
       action: "dispatched",
@@ -98,8 +103,8 @@ export async function handleScheduled(
       scheduledTime,
       startedAt,
       completedAt,
-      lastDispatchAt: completedAt,
-      nextDispatchAfter: new Date(Date.parse(completedAt) + MONITOR_INTERVAL_MS).toISOString(),
+      lastDispatchAt,
+      nextDispatchAfter: new Date(Date.parse(lastDispatchAt) + MONITOR_INTERVAL_MS).toISOString(),
     });
   } catch (error) {
     await writeSchedulerStatus(env, {

@@ -43,6 +43,33 @@ test("an unseen product after a known product is not treated as a new arrival", 
   expect(findNewProducts(products, initial)).toEqual([]);
 });
 
+test("a newer product id after a known product is treated as a new arrival", () => {
+  const orderedProducts = [
+    createProduct({ id: "240001215266", name: "known" }),
+    createProduct({ id: "240004022460", name: "new item inserted later" }),
+    createProduct({ id: "240004022425", name: "older rollover" }),
+  ];
+  const initial: MonitorState = {
+    schemaVersion: 1,
+    seenProductIds: ["240001215266", "240004022458"],
+  };
+
+  expect(findNewProducts(orderedProducts, initial)).toEqual([must(orderedProducts[1])]);
+});
+
+test("a replaced page of older product ids does not cause a notification burst", () => {
+  const olderProducts = [
+    createProduct({ id: "240001215153" }),
+    createProduct({ id: "240004022425" }),
+  ];
+  const initial: MonitorState = {
+    schemaVersion: 1,
+    seenProductIds: ["240001215266", "240004022460"],
+  };
+
+  expect(findNewProducts(olderProducts, initial)).toEqual([]);
+});
+
 test("a completely replaced page is baselined without a notification burst", () => {
   const initial: MonitorState = { schemaVersion: 1, seenProductIds: ["old"] };
   expect(findNewProducts(products, initial)).toEqual([]);

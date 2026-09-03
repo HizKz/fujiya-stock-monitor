@@ -40,7 +40,30 @@ test("scheduled run records a successful GitHub dispatch", async () => {
   expect(status.action).toBe("dispatched");
   expect(status.cron).toBe("*/10 * * * *");
   expect(status.scheduledTime).toBe("2026-09-02T00:10:00.000Z");
-  expect(status.lastDispatchAt).toBeTruthy();
+  expect(status.lastDispatchAt).toBe("2026-09-02T00:10:00.000Z");
+  expect(status.nextDispatchAfter).toBe("2026-09-02T00:20:00.000Z");
+});
+
+test("scheduled run dispatches the next exact ten-minute slot", async () => {
+  const lastDispatchAt = "2026-09-02T11:00:00.000Z";
+  const kv = createKv(JSON.stringify({ ok: true, lastDispatchAt }));
+  let dispatchCount = 0;
+
+  await handleScheduled(
+    { cron: "*/10 11-13 * * *", scheduledTime: Date.UTC(2026, 8, 2, 11, 10) },
+    { NOTIFICATIONS: kv },
+    {
+      now: "2026-09-02T11:10:00.500Z",
+      triggerMonitorWorkflowImpl: async () => {
+        dispatchCount += 1;
+      },
+    }
+  );
+
+  expect(dispatchCount).toBe(1);
+  const status = JSON.parse((await kv.get("status")) ?? "null") as SchedulerStatus;
+  expect(status.action).toBe("dispatched");
+  expect(status.lastDispatchAt).toBe("2026-09-02T11:10:00.000Z");
 });
 
 test("scheduled run skips GitHub dispatch during the ten-minute interval", async () => {

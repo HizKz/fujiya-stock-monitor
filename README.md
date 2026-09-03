@@ -1,11 +1,11 @@
 # Fujiya AVIC Stock Monitor
 
-[フジヤエービックの中古商品一覧](https://www.fujiya-avic.co.jp/shop/c/c40_ssd/)を10分ごとに確認し、新しく掲載された商品をDiscord Botで通知します。
+[フジヤエービックの中古商品一覧](https://www.fujiya-avic.co.jp/shop/c/c40_ssd/)を日本時間の20:00以上23:00未満、10分ごとに確認し、新しく掲載された商品をDiscord Botで通知します。
 
 ## 構成
 
 ```text
-Cloudflare Cron（10分ごと）
+Cloudflare Cron（毎日20:00〜22:50 JST、10分ごと）
   └─ GitHub Actionsを即時起動
        ├─ フジヤエービックの商品一覧を取得・新着判定
        └─ Cloudflare Workerへ新着商品を送信
@@ -26,6 +26,8 @@ Cloudflare Workers、Workers KV、GitHub Actionsの無料枠内での個人利�
 - 新着順の1ページ目だけを監視
 - 初回は現在の商品を基準として保存し、通知しない
 - 2回目以降、新しい商品コードが現れたときに通知
+- 一覧の途中へ追加された商品も、同じ商品コード系列の過去最大番号を更新していれば通知
+- ページ繰り越しで現れた過去の商品コードは通知対象外
 - `在庫あり`と`売り切れ`の両方を通知
 - 1回の更新を1つのDiscordメッセージにまとめる
 - 1ページに1商品のカードを表示し、商品名・価格・画像を確認可能
@@ -173,7 +175,7 @@ Name: CLOUDFLARE_SCHEDULER_ENABLED
 Value: true
 ```
 
-これでGitHub側の予備Cronはジョブをスキップし、Cloudflare Cronからの`workflow_dispatch`だけが実行されます。Cloudflare Workerは1分ごとに起動しますが、GitHub Actionsとフジヤエービックの商品取得は前回起動から10分経過したときだけ行います。Cronが一度遅れても次の1分で回復できる構成です。
+これでGitHub側の予備Cronはジョブをスキップし、Cloudflare Cronからの`workflow_dispatch`だけが実行されます。Cloudflare Workerは毎日20:00〜22:50（JST）に10分間隔で起動し、GitHub Actionsからフジヤエービックの商品を取得します。Cloudflare CronはUTC基準なので、`wrangler.jsonc`ではJSTから9時間引いた`*/10 11-13 * * *`を設定しています。
 
 定期実行の最終結果は次のURLで確認できます。`scheduler`が`null`ならまだCron未実行です。`action`はGitHub Actionsを起動した`dispatched`、10分待機中の`skipped`、失敗した`failed`のいずれかになります。
 
@@ -244,7 +246,7 @@ bun.lock              Bunの依存関係ロックファイル
 
 ## 運用上の注意
 
-- 公開ページ1枚だけを10分間隔で取得します。全ページ巡回は行いません。
+- 公開ページ1枚だけを毎日20:00〜22:50（JST）の10分間隔で取得します。全ページ巡回は行いません。
 - Cloudflare Cronの設定変更は反映に最大15分程度かかる場合があります。
 - 403が返った場合は再試行せず、GitHub Actionsを失敗させます。
 - 429ではサイトやDiscordが指定した待ち時間に従い、最大1回だけ再試行します。

@@ -4,6 +4,8 @@ import path from "node:path";
 import type { MonitorState, Product } from "../shared/domain.ts";
 
 const SCHEMA_VERSION = 1;
+const PRODUCT_ID_PATTERN = /^\d{12}$/;
+const PRODUCT_ID_SERIES_LENGTH = 6;
 
 export async function loadState(filePath: string): Promise<MonitorState> {
   try {
@@ -29,12 +31,21 @@ export async function saveState(filePath: string, state: MonitorState): Promise<
 export function findNewProducts(products: Product[], state: MonitorState): Product[] {
   const seenIds = new Set(state.seenProductIds);
   const firstKnownIndex = products.findIndex((product) => seenIds.has(product.id));
+  const latestSeenIdBySeries = findLatestSeenIdBySeries(state.seenProductIds);
 
-  // The category is sorted by newest first. Only an unseen prefix represents
-  // products inserted at the top. Unseen products after a known item are older
-  // products rolling over from page 2 as items disappear from page 1.
-  if (firstKnownIndex < 0) return [];
-  return products.slice(0, firstKnownIndex).filter((product) => !seenIds.has(product.id));
+  // The category is usually sorted newest first, so keep treating an unseen
+  // prefix as new. The site can also insert a new item later in the page; in
+  // that case, a product ID newer than the latest known ID in the same series
+  // is also new. Lower IDs are older products rolling over from another page.
+  return products.filter((product, index) => {
+    if (seenIds.has(product.id)) return false;
+    if (firstKnownIndex >= 0 && index < firstKnownIndex) return true;
+
+    if (!PRODUCT_ID_PATTERN.test(product.id)) return false;
+    const series = product.id.slice(0, PRODUCT_ID_SERIES_LENGTH);
+    const latestSeenId = latestSeenIdBySeries.get(series);
+    return latestSeenId !== undefined && product.id > latestSeenId;
+  });
 }
 
 export function withSeenProducts(state: MonitorState, products: Product[]): MonitorState {
@@ -56,6 +67,20 @@ export function withSeenProducts(state: MonitorState, products: Product[]): Moni
 
 export function emptyState(): MonitorState {
   return { schemaVersion: SCHEMA_VERSION, seenProductIds: [] };
+}
+
+function findLatestSeenIdBySeries(ids: string[]): Map<string, string> {
+  const latestBySeries = new Map<string, string>();
+
+  for (const id of ids) {
+    if (!PRODUCT_ID_PATTERN.test(id)) continue;
+
+    const series = id.slice(0, PRODUCT_ID_SERIES_LENGTH);
+    const latestId = latestBySeries.get(series);
+    if (latestId === undefined || id > latestId) latestBySeries.set(series, id);
+  }
+
+  return latestBySeries;
 }
 
 function validateState(state: unknown): asserts state is MonitorState {
