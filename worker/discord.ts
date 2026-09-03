@@ -44,11 +44,7 @@ interface DiscordInteraction {
   application_id?: string;
   token?: string;
   data?: { custom_id?: string };
-}
-
-interface InteractionUpdate {
-  type: 7;
-  data: DiscordMessage;
+  message?: { flags?: number };
 }
 
 export async function createNotification(
@@ -114,8 +110,8 @@ export async function createNotification(
 export async function handleInteraction(
   request: Request,
   env: InteractionEnv,
-  ctx?: InteractionContext,
-  options: RequestOptions = {}
+  _ctx?: InteractionContext,
+  _options: RequestOptions = {}
 ): Promise<Response> {
   const rawBody = await request.text();
   if (!(await verifyDiscordSignature(request.headers, rawBody, env.DISCORD_PUBLIC_KEY))) {
@@ -146,26 +142,20 @@ export async function handleInteraction(
     return ephemeralResponse("このボタンには対応していません。");
   }
 
-  if (ctx && interaction.application_id && interaction.token) {
-    ctx.waitUntil(
-      updateInteractionMessage(
-        interaction,
-        notificationId,
-        Number(requestedPage),
-        env,
-        options
-      )
-    );
-    return jsonResponse({ type: 6 });
-  }
-
-  return buildInteractionUpdate(notificationId, Number(requestedPage), env);
+  const updateExistingEphemeral = Boolean((interaction.message?.flags ?? 0) & 64);
+  return buildInteractionResponse(
+    notificationId,
+    Number(requestedPage),
+    env,
+    updateExistingEphemeral
+  );
 }
 
-async function buildInteractionUpdate(
+async function buildInteractionResponse(
   notificationId: string,
   requestedPage: number,
-  env: InteractionEnv
+  env: InteractionEnv,
+  updateExistingEphemeral: boolean
 ): Promise<Response> {
   const stored = await env.NOTIFICATIONS.get(`notification:${notificationId}`);
   if (!stored) {
@@ -182,50 +172,10 @@ async function buildInteractionUpdate(
   const record = parseNotificationRecord(rawRecord);
   if (!record) return ephemeralResponse("通知データを読み込めませんでした。");
 
-  const result: InteractionUpdate = {
-    type: 7,
-    data: buildMessage(record.products, notificationId, requestedPage, record.test),
-  };
-  return jsonResponse(result);
-}
-
-async function updateInteractionMessage(
-  interaction: DiscordInteraction,
-  notificationId: string,
-  requestedPage: number,
-  env: InteractionEnv,
-  options: RequestOptions
-): Promise<void> {
-  try {
-    const response = await buildInteractionUpdate(notificationId, requestedPage, env);
-    const result: unknown = await response.json();
-    if (!isInteractionUpdate(result)) {
-      console.error("Unable to build deferred interaction update", result);
-      return;
-    }
-
-    if (!interaction.application_id || !interaction.token) return;
-    const fetchImpl = options.fetchImpl ?? fetch;
-    const url = `${DISCORD_API_BASE}/webhooks/${encodeURIComponent(
-      interaction.application_id
-    )}/${encodeURIComponent(interaction.token)}/messages/@original`;
-    const discordResponse = await fetchImpl(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(result.data),
-    });
-
-    if (!discordResponse.ok) {
-      const body = await safeResponseText(discordResponse);
-      console.error(
-        `Deferred Discord update failed with HTTP ${discordResponse.status}${
-          body ? `: ${body}` : ""
-        }`
-      );
-    }
-  } catch (error) {
-    console.error("Deferred Discord update failed", error);
-  }
+  const message = buildMessage(record.products, notificationId, requestedPage, record.test);
+  return updateExistingEphemeral
+    ? jsonResponse({ type: 7, data: message })
+    : jsonResponse({ type: 4, data: { ...message, flags: 64 } });
 }
 
 export async function verifyDiscordSignature(
@@ -407,11 +357,11 @@ function isDiscordInteraction(value: unknown): value is DiscordInteraction {
     if (!isRecord(value.data)) return false;
     if (value.data.custom_id !== undefined && typeof value.data.custom_id !== "string") return false;
   }
+  if (value.message !== undefined) {
+    if (!isRecord(value.message)) return false;
+    if (value.message.flags !== undefined && typeof value.message.flags !== "number") return false;
+  }
   return true;
-}
-
-function isInteractionUpdate(value: unknown): value is InteractionUpdate {
-  return isRecord(value) && value.type === 7 && isRecord(value.data);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

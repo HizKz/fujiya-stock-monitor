@@ -27,6 +27,7 @@ interface NotificationResponse {
 interface InteractionResponse {
   type: number;
   data: {
+    flags?: number;
     embeds: Array<{ description: string; footer: { text: string } }>;
   };
 }
@@ -96,7 +97,7 @@ test("createNotification deduplicates a successful monitor delivery", async () =
   });
 });
 
-test("handleInteraction verifies Discord and updates the message page", async () => {
+test("handleInteraction opens a private page from a public notification", async () => {
   const notificationId = "c".repeat(32);
   const kv = new MemoryKv();
   await kv.put(
@@ -133,13 +134,14 @@ test("handleInteraction verifies Discord and updates the message page", async ()
   );
   const result = await responseJson<InteractionResponse>(response);
 
-  expect(result.type).toBe(7);
+  expect(result.type).toBe(4);
+  expect(result.data.flags).toBe(64);
   expect(result.data.embeds).toHaveLength(1);
   expect(result.data.embeds[0]?.footer.text).toBe("2 / 12件");
   expect(result.data.embeds[0]?.description).toMatch(/Product 2/);
 });
 
-test("handleInteraction acknowledges immediately and updates the message in the background", async () => {
+test("handleInteraction updates the existing private page", async () => {
   const notificationId = "d".repeat(32);
   const kv = new MemoryKv();
   await kv.put(
@@ -152,9 +154,8 @@ test("handleInteraction acknowledges immediately and updates the message in the 
   const timestamp = "1720000001";
   const rawBody = JSON.stringify({
     type: 3,
-    application_id: "discord-app-id",
-    token: "interaction-token",
     data: { custom_id: `stock:${notificationId}:2` },
+    message: { flags: 64 },
   });
   const signature = await crypto.subtle.sign(
     "Ed25519",
@@ -165,40 +166,19 @@ test("handleInteraction acknowledges immediately and updates the message in the 
     "X-Signature-Ed25519": bytesToHex(signature),
     "X-Signature-Timestamp": timestamp,
   });
-  const backgroundTasks: Promise<unknown>[] = [];
-  const discordRequests: Array<{ url: string; init: RequestInit | undefined }> = [];
-
   const response = await handleInteraction(
     new Request("https://example.workers.dev/interactions", {
       method: "POST",
       headers,
       body: rawBody,
     }),
-    { NOTIFICATIONS: kv, DISCORD_PUBLIC_KEY: publicKeyHex },
-    {
-      waitUntil: (task) => {
-        backgroundTasks.push(task);
-      },
-    },
-    {
-      fetchImpl: async (url, init) => {
-        discordRequests.push({ url: String(url), init });
-        return new Response(null, { status: 204 });
-      },
-    }
+    { NOTIFICATIONS: kv, DISCORD_PUBLIC_KEY: publicKeyHex }
   );
 
-  expect(await responseJson<Record<string, unknown>>(response)).toEqual({ type: 6 });
-  expect(backgroundTasks).toHaveLength(1);
-  await must(backgroundTasks[0]);
-  const discordRequest = must(discordRequests[0]);
-  expect(discordRequest.url).toBe(
-    "https://discord.com/api/v10/webhooks/discord-app-id/interaction-token/messages/@original"
-  );
-  const payload = jsonBody(discordRequest.init) as {
-    embeds: Array<{ footer: { text: string } }>;
-  };
-  expect(payload.embeds[0]?.footer.text).toBe("3 / 12件");
+  const result = await responseJson<InteractionResponse>(response);
+  expect(result.type).toBe(7);
+  expect(result.data.flags).toBeUndefined();
+  expect(result.data.embeds[0]?.footer.text).toBe("3 / 12件");
 });
 
 class MemoryKv implements NotificationKv {
