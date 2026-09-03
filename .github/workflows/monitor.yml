@@ -15,6 +15,11 @@ on:
         options:
           - monitor
           - bot-test
+          - product-notify
+      product-id:
+        description: "通知する12桁の商品ID（product-notifyのみ）"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -55,6 +60,15 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'bot-test'
         run: bun run bot:test
         env:
+          NOTIFIER_API_URL: ${{ secrets.NOTIFIER_API_URL }}
+          NOTIFIER_API_TOKEN: ${{ secrets.NOTIFIER_API_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Notify one product
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'product-notify'
+        run: bun run notify:product
+        env:
+          PRODUCT_ID: ${{ inputs.product-id }}
           NOTIFIER_API_URL: ${{ secrets.NOTIFIER_API_URL }}
           NOTIFIER_API_TOKEN: ${{ secrets.NOTIFIER_API_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

@@ -8,6 +8,7 @@
     "start": "bun src/main.ts",
     "dry-run": "bun src/main.ts --dry-run",
     "bot:test": "bun src/main.ts --bot-test",
+    "notify:product": "bun src/notifyProduct.ts",
     "webhook:test": "bun src/main.ts --webhook-test",
     "test": "bun test",
     "typecheck": "bun run worker:types:check && bunx tsc --noEmit",

@@ -160,6 +160,8 @@ Actions
 
 現在の商品10件を使ったテスト通知が1通届き、「前へ」「次へ」で10商品を切り替えられれば成功です。テストでは`data/seen-products.json`を変更しません。
 
+通知漏れした特定の1商品だけを手動送信する場合は、`Run workflow`で`mode`を`product-notify`にし、`product-id`へ12桁の商品IDを入力します。商品詳細はフジヤエービックの商品ページから取得され、通常通知として送信されます。同じ商品は24時間以内に再実行しても二重投稿されません。
+
 ## 7. Cloudflare Cronへ完全移行する
 
 Botテストが成功した後、GitHubのRepository Variableを追加します。

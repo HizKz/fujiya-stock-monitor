@@ -30,7 +30,7 @@ export function getMode(args: string[]): RunMode {
   return "monitor";
 }
 
-async function sendNotification(products: Product[], test = false): Promise<void> {
+export async function sendNotification(products: Product[], test = false): Promise<void> {
   if (hasBotNotifier()) {
     const send = test ? postBotTestNotification : postBotNotification;
     await send(

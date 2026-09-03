@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises";
 
 import type { RuntimeConfig } from "../shared/domain.ts";
 
-import { fetchCategoryHtml, parseProducts } from "../src/fetchProducts.ts";
+import {
+  fetchCategoryHtml,
+  fetchProductDetail,
+  parseProductDetail,
+  parseProducts,
+} from "../src/fetchProducts.ts";
 
 const targetUrl = "https://www.fujiya-avic.co.jp/shop/c/c40_ssd/";
 const fixtureUrl = new URL("./fixtures/category.html", import.meta.url);
@@ -42,6 +47,54 @@ test("parseProducts rejects an empty or challenge page", () => {
   expect(() => parseProducts("<html><body>challenge</body></html>", targetUrl, 1)).toThrow(
     /Parser health check failed/
   );
+});
+
+test("parseProductDetail extracts a product for a manual notification", () => {
+  const productUrl = "https://www.fujiya-avic.co.jp/shop/g/g240004022460/";
+  const html = `
+    <title>Cayin N30LE DAP [SPK-A004] ABランク 中古｜フジヤエービック</title>
+    <meta name="description" content="Cayin［カイン］ N30LE DAP [SPK-A004] ABランク 中古の商品情報ページです。">
+    <script type="application/ld+json">
+      {
+        "@type": "Product",
+        "name": "N30LE DAP [SPK-A004]",
+        "image": "https://www.fujiya-avic.co.jp/img/goods/L/240004022460.jpg",
+        "mpn": "240004022460",
+        "brand": { "name": "Cayin" },
+        "offers": {
+          "price": 613800,
+          "availability": "http://schema.org/InStock"
+        }
+      }
+    </script>
+  `;
+
+  expect(parseProductDetail(html, productUrl, "240004022460")).toEqual({
+    id: "240004022460",
+    name: "N30LE DAP [SPK-A004]",
+    price: "￥613,800(税込)",
+    condition: "AB",
+    stock: "在庫あり",
+    url: productUrl,
+    brandEnglish: "Cayin",
+    brandJapanese: "カイン",
+    imageUrl: "https://www.fujiya-avic.co.jp/img/goods/L/240004022460.jpg",
+  });
+});
+
+test("fetchProductDetail rejects an invalid product id before fetching", async () => {
+  let requestCount = 0;
+
+  await expect(
+    fetchProductDetail("not-an-id", createRuntimeConfig(), {
+      fetchImpl: async () => {
+        requestCount += 1;
+        return new Response("unexpected");
+      },
+    })
+  ).rejects.toThrow(/exactly 12 digits/);
+
+  expect(requestCount).toBe(0);
 });
 
 test("fetchCategoryHtml retries a 429 once using Retry-After", async () => {
