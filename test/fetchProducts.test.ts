@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import type { RuntimeConfig } from "../shared/domain.ts";
 
 import {
+  categoryPageUrl,
   fetchCategoryHtml,
   fetchProductDetail,
   parseProductDetail,
@@ -95,6 +96,16 @@ test("fetchProductDetail rejects an invalid product id before fetching", async (
   ).rejects.toThrow(/exactly 12 digits/);
 
   expect(requestCount).toBe(0);
+});
+
+test("categoryPageUrl builds the requested category page", () => {
+  expect(categoryPageUrl(targetUrl, 1)).toBe(targetUrl);
+  expect(categoryPageUrl(targetUrl, 2)).toBe(
+    "https://www.fujiya-avic.co.jp/shop/c/c40_ssd_p2/"
+  );
+  expect(categoryPageUrl("https://www.fujiya-avic.co.jp/shop/c/c40_ssd_p3/", 2)).toBe(
+    "https://www.fujiya-avic.co.jp/shop/c/c40_ssd_p2/"
+  );
 });
 
 test("fetchCategoryHtml retries a 429 once using Retry-After", async () => {

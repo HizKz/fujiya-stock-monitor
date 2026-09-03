@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import type { Product } from "../shared/domain.ts";
 import { config, validateConfig } from "./config.ts";
-import { fetchProductDetail, fetchProducts } from "./fetchProducts.ts";
+import { categoryPageUrl, fetchProductDetail, fetchProducts } from "./fetchProducts.ts";
 import { sendNotification } from "./main.ts";
 
 interface ManualNotificationOptions {
@@ -46,8 +46,7 @@ async function loadProductsForNotification(options: ManualNotificationOptions): 
     }
 
     const page = Number(pageNumber);
-    const targetUrl =
-      page === 1 ? config.targetUrl : config.targetUrl.replace(/\/$/, `_p${page}/`);
+    const targetUrl = categoryPageUrl(config.targetUrl, page);
     const products = await fetchProducts({ ...config, targetUrl });
     return selectProductsThrough(products, throughProductId);
   }

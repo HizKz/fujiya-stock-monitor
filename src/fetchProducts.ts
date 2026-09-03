@@ -40,6 +40,15 @@ export async function fetchProductDetail(
   return parseProductDetail(html, productUrl, productId);
 }
 
+export function categoryPageUrl(targetUrl: string, page: number): string {
+  if (!Number.isInteger(page) || page < 1) throw new Error("Page must be a positive integer");
+
+  const url = new URL(targetUrl);
+  const suffix = page === 1 ? "/" : `_p${page}/`;
+  url.pathname = url.pathname.replace(/(?:_p\d+)?\/$/, suffix);
+  return url.href;
+}
+
 async function fetchHtml(
   url: string,
   runtimeConfig: RuntimeConfig,

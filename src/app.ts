@@ -3,6 +3,7 @@ import type { MonitorState, Product, RunMode, RunResult, RuntimeConfig } from ".
 export interface MonitorDependencies {
   config: RuntimeConfig;
   fetchProducts: (config: RuntimeConfig) => Promise<Product[]>;
+  fetchSecondPageProducts: (config: RuntimeConfig) => Promise<Product[]>;
   loadState: (filePath: string) => Promise<MonitorState>;
   saveState: (filePath: string, state: MonitorState) => Promise<void>;
   findNewProducts: (products: Product[], state: MonitorState) => Product[];
@@ -28,7 +29,7 @@ export async function runMonitor(
   }
 
   log(`[INFO] Fetching ${dependencies.config.targetUrl}`);
-  const products = await dependencies.fetchProducts(dependencies.config);
+  let products = await dependencies.fetchProducts(dependencies.config);
   log(`[INFO] Parsed ${products.length} products`);
 
   if (mode === "dry-run") {
@@ -42,6 +43,20 @@ export async function runMonitor(
   }
 
   const state = await dependencies.loadState(dependencies.config.stateFile);
+  const seenIds = new Set(state.seenProductIds);
+  const hasKnownProductOnFirstPage = products.some((product) => seenIds.has(product.id));
+
+  if (state.seenProductIds.length > 0 && !hasKnownProductOnFirstPage) {
+    log("[INFO] No known products found on page 1; fetching page 2");
+    const secondPageProducts = await dependencies.fetchSecondPageProducts(dependencies.config);
+    log(`[INFO] Parsed ${secondPageProducts.length} products from page 2`);
+    const firstPageIds = new Set(products.map((product) => product.id));
+    products = [
+      ...products,
+      ...secondPageProducts.filter((product) => !firstPageIds.has(product.id)),
+    ];
+  }
+
   const nextState = dependencies.withSeenProducts(state, products);
   const unseenProductCount = nextState.seenProductIds.length - state.seenProductIds.length;
 

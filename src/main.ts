@@ -4,7 +4,7 @@ import type { Product, RunMode, RunResult } from "../shared/domain.ts";
 import { runMonitor } from "./app.ts";
 import { config, type NotificationEnv, validateConfig } from "./config.ts";
 import { postNewProducts, postTestNotification } from "./discord.ts";
-import { fetchProducts } from "./fetchProducts.ts";
+import { categoryPageUrl, fetchProducts } from "./fetchProducts.ts";
 import { postBotNotification, postBotTestNotification } from "./notifier.ts";
 import { findNewProducts, loadState, saveState, withSeenProducts } from "./state.ts";
 
@@ -15,6 +15,11 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<RunR
   return runMonitor(mode, {
     config,
     fetchProducts,
+    fetchSecondPageProducts: (runtimeConfig) =>
+      fetchProducts({
+        ...runtimeConfig,
+        targetUrl: categoryPageUrl(runtimeConfig.targetUrl, 2),
+      }),
     loadState,
     saveState,
     findNewProducts,
