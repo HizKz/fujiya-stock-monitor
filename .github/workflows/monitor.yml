@@ -17,7 +17,15 @@ on:
           - bot-test
           - product-notify
       product-id:
-        description: "通知する12桁の商品ID（product-notifyのみ）"
+        description: "単品通知する12桁の商品ID（product-notifyのみ）"
+        required: false
+        type: string
+      page-number:
+        description: "範囲通知する一覧ページ番号（product-notifyのみ）"
+        required: false
+        type: string
+      through-product-id:
+        description: "ページ先頭からこの商品IDまで通知（product-notifyのみ）"
         required: false
         type: string
 
@@ -69,6 +77,8 @@ jobs:
         run: bun run notify:product
         env:
           PRODUCT_ID: ${{ inputs.product-id }}
+          PAGE_NUMBER: ${{ inputs.page-number }}
+          THROUGH_PRODUCT_ID: ${{ inputs.through-product-id }}
           NOTIFIER_API_URL: ${{ secrets.NOTIFIER_API_URL }}
           NOTIFIER_API_TOKEN: ${{ secrets.NOTIFIER_API_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
